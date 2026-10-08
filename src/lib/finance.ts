@@ -1,6 +1,7 @@
 import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { convert, convertTxn, fmtMoney, fx } from "./currency";
 
 export type Category = Tables<"categories">;
 export type Account = Tables<"accounts">;
@@ -63,11 +64,17 @@ export function useRefreshFinance() {
 }
 
 // ---------- formatting ----------
-const nf = new Intl.NumberFormat("en-PK", { maximumFractionDigits: 0 });
+/** Format an amount already in the current display currency. */
 export function rs(n: number, opts: { sign?: boolean } = {}) {
-  const abs = nf.format(Math.abs(Math.round(n)));
-  const s = n < 0 ? "−" : opts.sign && n > 0 ? "+" : "";
-  return `${s}Rs ${abs}`;
+  return fmtMoney(n, fx().display, opts);
+}
+/** Format an amount in its own original currency. */
+export function money(n: number, code: string, opts: { sign?: boolean } = {}) {
+  return fmtMoney(n, code, opts);
+}
+/** Transaction amount converted to the display currency (uses the rate saved with the entry). */
+export function txnAmt(t: Txn, to?: string) {
+  return convertTxn(Number(t.amount), t.currency, t.fx_usd, to);
 }
 export function compactRs(n: number) {
   const a = Math.abs(n);
@@ -105,7 +112,8 @@ export const LIABILITY_TYPES = ["credit", "loan"];
 export function accountBalance(acc: Account, txns: Txn[]) {
   let b = Number(acc.opening_balance);
   for (const t of txns) {
-    const a = Number(t.amount);
+    if (t.account_id !== acc.id && t.to_account_id !== acc.id) continue;
+    const a = txnAmt(t, acc.currency);
     if (t.type === "income" && t.account_id === acc.id) b += a;
     else if (t.type === "expense" && t.account_id === acc.id) b -= a;
     else if (t.type === "transfer") {
@@ -117,17 +125,21 @@ export function accountBalance(acc: Account, txns: Txn[]) {
 }
 
 export function totals(d: FinanceData) {
-  const balances = d.accounts.map((a) => ({ acc: a, balance: accountBalance(a, d.transactions) }));
-  const cash = balances.reduce((s, x) => s + x.balance, 0);
-  const assets = balances.filter((x) => x.balance > 0).reduce((s, x) => s + x.balance, 0);
-  const liabilities = balances.filter((x) => x.balance < 0).reduce((s, x) => s + x.balance, 0);
-  const invested = d.investments.reduce((s, i) => s + Number(i.invested), 0);
-  const portfolio = d.investments.reduce((s, i) => s + Number(i.current_value), 0);
-  const debtTotal = d.debts.reduce((s, x) => s + debtRemaining(x, d.debtPayments), 0);
+  // balance = native account currency; display = converted to display currency
+  const balances = d.accounts.map((a) => {
+    const balance = accountBalance(a, d.transactions);
+    return { acc: a, balance, display: convert(balance, a.currency) };
+  });
+  const cash = balances.reduce((s, x) => s + x.display, 0);
+  const assets = balances.filter((x) => x.display > 0).reduce((s, x) => s + x.display, 0);
+  const liabilities = balances.filter((x) => x.display < 0).reduce((s, x) => s + x.display, 0);
+  const invested = d.investments.reduce((s, i) => s + convert(Number(i.invested), i.currency), 0);
+  const portfolio = d.investments.reduce((s, i) => s + convert(Number(i.current_value), i.currency), 0);
+  const debtTotal = d.debts.reduce((s, x) => s + convert(debtRemaining(x, d.debtPayments), x.currency), 0);
   const totalAssets = assets + portfolio;
   const totalLiabilities = -liabilities + debtTotal; // positive number
-  const goalTarget = d.goals.reduce((s, g) => s + Number(g.target_amount), 0);
-  const goalSaved = d.goals.reduce((s, g) => s + goalSavedAmount(g, d.goalContributions), 0);
+  const goalTarget = d.goals.reduce((s, g) => s + convert(Number(g.target_amount), g.currency), 0);
+  const goalSaved = d.goals.reduce((s, g) => s + convert(goalSavedAmount(g, d.goalContributions), g.currency), 0);
   return {
     balances, cash, assets, liabilities, invested, portfolio, debtTotal, totalAssets, totalLiabilities,
     gain: portfolio - invested, gainPct: invested ? ((portfolio - invested) / invested) * 100 : 0,
@@ -187,7 +199,7 @@ export function investmentHistory(d: FinanceData, count = 12) {
     for (const inv of d.investments) {
       const hist = d.investmentValues.filter((h) => h.investment_id === inv.id && h.recorded_on <= end);
       const last = hist[hist.length - 1];
-      if (last) v += Number(last.value);
+      if (last) v += convert(Number(last.value), inv.currency);
     }
     out.push({ label: r.start.toLocaleDateString("en-GB", { month: "short" }), value: v });
   }
@@ -229,8 +241,8 @@ export function flowSummary(txns: Txn[], start: Date, end: Date) {
   let income = 0, expense = 0;
   for (const t of txns) {
     if (!inRange(t, start, end)) continue;
-    if (t.type === "income") income += Number(t.amount);
-    if (t.type === "expense") expense += Number(t.amount);
+    if (t.type === "income") income += txnAmt(t);
+    if (t.type === "expense") expense += txnAmt(t);
   }
   return { income, expense, net: income - expense };
 }
@@ -247,17 +259,21 @@ export function netWorthSeries(d: FinanceData, period: Period) {
     let after = 0;
     for (const t of d.transactions) {
       if (t.occurred_on > endISO) {
-        if (t.type === "income") after += Number(t.amount);
-        if (t.type === "expense") after -= Number(t.amount);
+        if (t.type === "income") after += txnAmt(t);
+        if (t.type === "expense") after -= txnAmt(t);
       }
     }
     // debt repaid after this date was still owed then
-    for (const p of d.debtPayments) if (p.paid_on > endISO) after += Number(p.amount);
+    for (const p of d.debtPayments) {
+      if (p.paid_on <= endISO) continue;
+      const debt = d.debts.find((x) => x.id === p.debt_id);
+      after += convert(Number(p.amount), debt?.currency ?? fx().display);
+    }
     // investment value changes after this date
     for (const inv of d.investments) {
       const hist = d.investmentValues.filter((h) => h.investment_id === inv.id && h.recorded_on <= endISO);
       const then = hist.length ? Number(hist[hist.length - 1]!.value) : 0;
-      after += Number(inv.current_value) - then;
+      after += convert(Number(inv.current_value) - then, inv.currency);
     }
     const label =
       period === "week"
@@ -277,7 +293,7 @@ export function categoryBreakdown(d: FinanceData, type: "expense" | "income", st
   for (const t of d.transactions) {
     if (t.type !== type || !inRange(t, start, end)) continue;
     const k = t.category_id ?? "none";
-    map.set(k, (map.get(k) ?? 0) + Number(t.amount));
+    map.set(k, (map.get(k) ?? 0) + txnAmt(t));
   }
   const total = [...map.values()].reduce((s, v) => s + v, 0);
   return [...map.entries()]
