@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_authenticated/bills")({
       <Bills />
     </AppShell>
   ),
-  errorComponent: ({ error }) => <div className="p-6 text-coral">{error.message}</div>,
+  errorComponent: ({ error }) => <div className="p-6 text-coral">{(error as Error).message}</div>,
   notFoundComponent: () => <div className="p-6">Not found</div>,
 });
 
@@ -30,7 +30,7 @@ function Bills() {
   const expenseCats = d.categories.filter((c) => c.kind === "expense");
 
   async function save() {
-    if (!edit?.name) return toast.error("Name required");
+    if (!edit?.name) { toast.error("Name required"); return; }
     const row = {
       name: edit.name,
       amount: Number(edit.amount ?? 0),
@@ -39,7 +39,7 @@ function Bills() {
       category_id: edit.category_id || null,
     };
     const { error } = edit.id ? await supabase.from("bills").update(row).eq("id", edit.id) : await supabase.from("bills").insert(row);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     setEdit(null);
     refresh();
   }
@@ -58,7 +58,7 @@ function Bills() {
       note: paying.name,
       occurred_on: todayISO(),
     });
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     await supabase.from("bills").update({ last_paid_on: todayISO() }).eq("id", paying.id);
     toast.success(`${paying.name} paid`);
     setPaying(null);

@@ -42,7 +42,7 @@ export function AddTransactionSheet({ open, onOpenChange }: { open: boolean; onO
       .insert({ name, kind: kind === "income" ? "income" : "expense", icon: "★", user_id: u.user!.id })
       .select()
       .single();
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     await refresh();
     setCategoryId(data.id);
     setCustomName("");
@@ -51,8 +51,8 @@ export function AddTransactionSheet({ open, onOpenChange }: { open: boolean; onO
 
   async function save() {
     const amt = Number(amount);
-    if (!amt || amt <= 0) return toast.error("Enter an amount");
-    if (kind === "transfer" && (!accountId || !toAccountId || accountId === toAccountId)) return toast.error("Pick two different accounts");
+    if (!amt || amt <= 0) { toast.error("Enter an amount"); return; }
+    if (kind === "transfer" && (!accountId || !toAccountId || accountId === toAccountId)) { toast.error("Pick two different accounts"); return; }
     setSaving(true);
     const { error } = await supabase.from("transactions").insert({
       type: kind,
@@ -64,7 +64,7 @@ export function AddTransactionSheet({ open, onOpenChange }: { open: boolean; onO
       note: note.trim() || null,
     });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success(kind === "income" ? "Income recorded" : kind === "expense" ? "Expense recorded" : "Transfer recorded");
     await refresh();
     onOpenChange(false);

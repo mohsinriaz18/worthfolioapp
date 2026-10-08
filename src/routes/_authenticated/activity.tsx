@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_authenticated/activity")({
       <Activity />
     </AppShell>
   ),
-  errorComponent: ({ error }) => <div className="p-6 text-coral">{error.message}</div>,
+  errorComponent: ({ error }) => <div className="p-6 text-coral">{(error as Error).message}</div>,
   notFoundComponent: () => <div className="p-6">Not found</div>,
 });
 
@@ -33,7 +33,7 @@ function Activity() {
   async function del(id: string) {
     if (!confirm("Delete this transaction?")) return;
     const { error } = await supabase.from("transactions").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     refresh();
   }
 
