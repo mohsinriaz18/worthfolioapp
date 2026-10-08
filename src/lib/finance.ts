@@ -7,6 +7,11 @@ export type Account = Tables<"accounts">;
 export type Txn = Tables<"transactions">;
 export type Bill = Tables<"bills">;
 export type Investment = Tables<"investments">;
+export type InvestmentValue = Tables<"investment_values">;
+export type Debt = Tables<"debts">;
+export type DebtPayment = Tables<"debt_payments">;
+export type Goal = Tables<"goals">;
+export type GoalContribution = Tables<"goal_contributions">;
 
 export type FinanceData = {
   categories: Category[];
@@ -14,6 +19,11 @@ export type FinanceData = {
   transactions: Txn[];
   bills: Bill[];
   investments: Investment[];
+  investmentValues: InvestmentValue[];
+  debts: Debt[];
+  debtPayments: DebtPayment[];
+  goals: Goal[];
+  goalContributions: GoalContribution[];
 };
 
 async function must<T>(p: PromiseLike<{ data: T | null; error: { message: string } | null }>) {
@@ -25,7 +35,7 @@ async function must<T>(p: PromiseLike<{ data: T | null; error: { message: string
 export const financeQuery = queryOptions({
   queryKey: ["finance"],
   queryFn: async (): Promise<FinanceData> => {
-    const [categories, accounts, transactions, bills, investments] = await Promise.all([
+    const [categories, accounts, transactions, bills, investments, investmentValues, debts, debtPayments, goals, goalContributions] = await Promise.all([
       must<Category[]>(supabase.from("categories").select("*").order("name")),
       must<Account[]>(supabase.from("accounts").select("*").order("created_at")),
       must<Txn[]>(
@@ -33,8 +43,13 @@ export const financeQuery = queryOptions({
       ),
       must<Bill[]>(supabase.from("bills").select("*").order("due_day")),
       must<Investment[]>(supabase.from("investments").select("*").order("created_at")),
+      must<InvestmentValue[]>(supabase.from("investment_values").select("*").order("recorded_on")),
+      must<Debt[]>(supabase.from("debts").select("*").order("created_at")),
+      must<DebtPayment[]>(supabase.from("debt_payments").select("*").order("paid_on", { ascending: false })),
+      must<Goal[]>(supabase.from("goals").select("*").order("created_at")),
+      must<GoalContribution[]>(supabase.from("goal_contributions").select("*").order("contributed_on", { ascending: false })),
     ]);
-    return { categories, accounts, transactions, bills, investments };
+    return { categories, accounts, transactions, bills, investments, investmentValues, debts, debtPayments, goals, goalContributions };
   },
 });
 
@@ -108,14 +123,89 @@ export function totals(d: FinanceData) {
   const liabilities = balances.filter((x) => x.balance < 0).reduce((s, x) => s + x.balance, 0);
   const invested = d.investments.reduce((s, i) => s + Number(i.invested), 0);
   const portfolio = d.investments.reduce((s, i) => s + Number(i.current_value), 0);
-  return { balances, cash, assets, liabilities, invested, portfolio, netWorth: cash + portfolio };
+  const debtTotal = d.debts.reduce((s, x) => s + debtRemaining(x, d.debtPayments), 0);
+  const totalAssets = assets + portfolio;
+  const totalLiabilities = -liabilities + debtTotal; // positive number
+  const goalTarget = d.goals.reduce((s, g) => s + Number(g.target_amount), 0);
+  const goalSaved = d.goals.reduce((s, g) => s + goalSavedAmount(g, d.goalContributions), 0);
+  return {
+    balances, cash, assets, liabilities, invested, portfolio, debtTotal, totalAssets, totalLiabilities,
+    gain: portfolio - invested, gainPct: invested ? ((portfolio - invested) / invested) * 100 : 0,
+    goalTarget, goalSaved, goalPct: goalTarget ? (goalSaved / goalTarget) * 100 : 0,
+    netWorth: totalAssets - totalLiabilities,
+  };
 }
 
-export type Period = "month" | "quarter" | "year";
+// ---------- debts ----------
+export function debtPaid(debt: Debt, payments: DebtPayment[]) {
+  return payments.filter((p) => p.debt_id === debt.id).reduce((s, p) => s + Number(p.amount), 0);
+}
+export function debtRemaining(debt: Debt, payments: DebtPayment[]) {
+  return Math.max(0, Number(debt.starting_balance) - debtPaid(debt, payments));
+}
+export function debtProgress(debt: Debt, payments: DebtPayment[]) {
+  const orig = Number(debt.original_amount) || Number(debt.starting_balance);
+  if (!orig) return 100;
+  return Math.min(100, ((orig - debtRemaining(debt, payments)) / orig) * 100);
+}
+export function monthlyEquivalent(amount: number, frequency: string) {
+  return frequency === "weekly" ? (amount * 52) / 12 : frequency === "biweekly" ? (amount * 26) / 12 : frequency === "quarterly" ? amount / 3 : frequency === "yearly" ? amount / 12 : amount;
+}
+
+// ---------- goals ----------
+export function goalSavedAmount(goal: Goal, contribs: GoalContribution[]) {
+  return Math.max(0, contribs.filter((c) => c.goal_id === goal.id).reduce((s, c) => s + Number(c.amount), 0));
+}
+export function goalStatus(goal: Goal, contribs: GoalContribution[], ref = new Date()) {
+  const saved = goalSavedAmount(goal, contribs);
+  const target = Number(goal.target_amount);
+  const remaining = Math.max(0, target - saved);
+  const pctDone = target ? Math.min(100, (saved / target) * 100) : 0;
+  let perMonth = 0, perWeek = 0, onTrack: boolean | null = null;
+  if (goal.target_date && remaining > 0) {
+    const end = new Date(goal.target_date + "T00:00:00");
+    const days = Math.max(1, (end.getTime() - ref.getTime()) / 86400000);
+    perMonth = remaining / Math.max(1, days / 30.44);
+    perWeek = remaining / Math.max(1, days / 7);
+    const start = new Date(goal.created_at);
+    const total = Math.max(1, end.getTime() - start.getTime());
+    const expected = Math.min(1, (ref.getTime() - start.getTime()) / total) * target;
+    onTrack = saved >= expected * 0.95;
+    if (days <= 1) onTrack = false;
+  } else if (remaining === 0) onTrack = true;
+  return { saved, target, remaining, pctDone, perMonth, perWeek, onTrack };
+}
+
+// ---------- investments ----------
+export function investmentHistory(d: FinanceData, count = 12) {
+  // portfolio value at end of each of the last `count` months using recorded value updates
+  const out: { label: string; value: number }[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const r = periodRange("month", -i);
+    const end = toISO(r.end);
+    let v = 0;
+    for (const inv of d.investments) {
+      const hist = d.investmentValues.filter((h) => h.investment_id === inv.id && h.recorded_on <= end);
+      const last = hist[hist.length - 1];
+      if (last) v += Number(last.value);
+    }
+    out.push({ label: r.start.toLocaleDateString("en-GB", { month: "short" }), value: v });
+  }
+  return out;
+}
+
+export type Period = "week" | "month" | "quarter" | "year";
 
 export function periodRange(period: Period, offset = 0, ref = new Date()) {
   const y = ref.getFullYear();
   const m = ref.getMonth();
+  if (period === "week") {
+    const day = (ref.getDay() + 6) % 7; // Monday start
+    const s = new Date(y, m, ref.getDate() - day + offset * 7);
+    const e = new Date(s.getFullYear(), s.getMonth(), s.getDate() + 6);
+    const f = (x: Date) => x.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    return { start: s, end: e, label: `${f(s)} – ${f(e)} ${e.getFullYear()}` };
+  }
   if (period === "month") {
     const s = new Date(y, m + offset, 1);
     const e = new Date(s.getFullYear(), s.getMonth() + 1, 0);
@@ -148,7 +238,7 @@ export function flowSummary(txns: Txn[], start: Date, end: Date) {
 /** Net worth at end of each period, derived backwards from today's net worth. */
 export function netWorthSeries(d: FinanceData, period: Period) {
   const { netWorth } = totals(d);
-  const count = period === "month" ? 12 : period === "quarter" ? 8 : 5;
+  const count = period === "week" ? 12 : period === "month" ? 12 : period === "quarter" ? 8 : 5;
   const today = todayISO();
   const points: { label: string; value: number }[] = [];
   for (let i = count - 1; i >= 0; i--) {
@@ -161,8 +251,18 @@ export function netWorthSeries(d: FinanceData, period: Period) {
         if (t.type === "expense") after -= Number(t.amount);
       }
     }
+    // debt repaid after this date was still owed then
+    for (const p of d.debtPayments) if (p.paid_on > endISO) after += Number(p.amount);
+    // investment value changes after this date
+    for (const inv of d.investments) {
+      const hist = d.investmentValues.filter((h) => h.investment_id === inv.id && h.recorded_on <= endISO);
+      const then = hist.length ? Number(hist[hist.length - 1]!.value) : 0;
+      after += Number(inv.current_value) - then;
+    }
     const label =
-      period === "month"
+      period === "week"
+        ? r.start.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+        : period === "month"
         ? r.start.toLocaleDateString("en-GB", { month: "short" })
         : period === "quarter"
           ? `Q${Math.floor(r.start.getMonth() / 3) + 1}'${String(r.start.getFullYear()).slice(2)}`
