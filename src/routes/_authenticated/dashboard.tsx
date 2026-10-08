@@ -4,7 +4,7 @@ import { AppShell, EmptyNote, PeriodToggle, SectionHead } from "@/components/App
 import { NetWorthChart } from "@/components/NetWorthChart";
 import { TxnRow } from "@/components/TxnRow";
 import { useCurrency } from "@/components/CurrencyProvider";
-import { getCurrency } from "@/lib/currency";
+import { convert, getCurrency } from "@/lib/currency";
 import {
   CHART_COLORS, categoryBreakdown, money, debtRemaining, financeQuery, goalStatus, flowSummary, initials, netWorthSeries, nextDue, pct, periodRange, rs, totals, useFinance, type Period,
 } from "@/lib/finance";
@@ -203,7 +203,7 @@ function Dashboard() {
         {d.investments.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
             {Object.entries(
-              d.investments.reduce<Record<string, number>>((m, i) => ((m[i.asset_type] = (m[i.asset_type] ?? 0) + Number(i.current_value)), m), {}),
+              d.investments.reduce<Record<string, number>>((m, i) => ((m[i.asset_type] = (m[i.asset_type] ?? 0) + convert(Number(i.current_value), i.currency)), m), {}),
             ).map(([k, v]) => (
               <span key={k} className="rounded-full bg-foreground/10 px-2.5 py-1 capitalize">
                 {k} {t.portfolio ? Math.round((v / t.portfolio) * 100) : 0}%

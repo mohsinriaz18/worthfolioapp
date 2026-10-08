@@ -7,7 +7,7 @@ import { BottomSheet, Field, PrimaryButton } from "@/components/Sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { CurrencySelect } from "@/components/CurrencySelect";
 import { useCurrency } from "@/components/CurrencyProvider";
-import { getCurrency, usdPerUnit } from "@/lib/currency";
+import { convert, getCurrency, usdPerUnit } from "@/lib/currency";
 
 import { CHART_COLORS, financeQuery, investmentHistory, money, pct, rs, todayISO, totals, useFinance, useRefreshFinance, type Investment } from "@/lib/finance";
 
@@ -36,7 +36,7 @@ function Investments() {
   const cur = useCurrency();
   const hist = investmentHistory(d);
   const alloc = Object.entries(
-    d.investments.reduce<Record<string, number>>((m, i) => ((m[i.asset_type] = (m[i.asset_type] ?? 0) + Number(i.current_value)), m), {}),
+    d.investments.reduce<Record<string, number>>((m, i) => ((m[i.asset_type] = (m[i.asset_type] ?? 0) + convert(Number(i.current_value), i.currency)), m), {}),
   ).map(([name, value]) => ({ name, value }));
 
   async function save() {
