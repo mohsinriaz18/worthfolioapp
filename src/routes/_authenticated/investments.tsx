@@ -5,7 +5,11 @@ import { Area, AreaChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAx
 import { AppShell, EmptyNote, SectionHead } from "@/components/AppShell";
 import { BottomSheet, Field, PrimaryButton } from "@/components/Sheet";
 import { supabase } from "@/integrations/supabase/client";
-import { CHART_COLORS, financeQuery, investmentHistory, pct, rs, todayISO, totals, useFinance, useRefreshFinance, type Investment } from "@/lib/finance";
+import { CurrencySelect } from "@/components/CurrencySelect";
+import { useCurrency } from "@/components/CurrencyProvider";
+import { convert, getCurrency, usdPerUnit } from "@/lib/currency";
+
+import { CHART_COLORS, financeQuery, investmentHistory, money, pct, rs, todayISO, totals, useFinance, useRefreshFinance, type Investment } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/investments")({
   head: () => ({ meta: [{ title: "Investments — Worthfolio" }, { name: "description", content: "Your portfolio: stocks, ETFs, funds, gold, property, crypto and more." }] }),
@@ -29,9 +33,10 @@ function Investments() {
   const [edit, setEdit] = useState<Partial<Investment> | null>(null);
   const [upd, setUpd] = useState<{ inv: Investment; value: string; date: string } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const cur = useCurrency();
   const hist = investmentHistory(d);
   const alloc = Object.entries(
-    d.investments.reduce<Record<string, number>>((m, i) => ((m[i.asset_type] = (m[i.asset_type] ?? 0) + Number(i.current_value)), m), {}),
+    d.investments.reduce<Record<string, number>>((m, i) => ((m[i.asset_type] = (m[i.asset_type] ?? 0) + convert(Number(i.current_value), i.currency)), m), {}),
   ).map(([name, value]) => ({ name, value }));
 
   async function save() {
@@ -48,6 +53,7 @@ function Investments() {
       purchase_price: n(edit.purchase_price),
       purchase_date: edit.purchase_date || null,
       notes: edit.notes || null,
+      currency: edit.currency ?? cur.primary,
       current_value: current,
       updated_at: new Date().toISOString(),
     };
@@ -149,8 +155,8 @@ function Investments() {
                   <p className="truncate text-[11px] capitalize text-mist">{[i.asset_type, i.platform, i.quantity ? `${i.quantity} units` : null].filter(Boolean).join(" · ")}</p>
                 </div>
                 <div className="text-right">
-                  <p className="num text-[14px] font-semibold">{rs(Number(i.current_value))}</p>
-                  <p className={`num text-[11px] ${g >= 0 ? "text-primary" : "text-coral"}`}>{rs(g, { sign: true })} · {Number(i.invested) ? pct((g / Number(i.invested)) * 100) : "—"}</p>
+                  <p className="num text-[14px] font-semibold">{money(Number(i.current_value), i.currency)}</p>
+                  <p className={`num text-[11px] ${g >= 0 ? "text-primary" : "text-coral"}`}>{money(g, i.currency, { sign: true })} · {Number(i.invested) ? pct((g / Number(i.invested)) * 100) : "—"}</p>
                 </div>
               </button>
               {isOpen && (
@@ -160,8 +166,8 @@ function Investments() {
                     <button onClick={() => setEdit(i)} className="glass-l rounded-full px-4 py-2 text-[12px]">Edit details</button>
                   </div>
                   <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
-                    <Info l="Invested" v={rs(Number(i.invested))} />
-                    <Info l="Buy price" v={i.purchase_price != null ? rs(Number(i.purchase_price)) : "—"} />
+                    <Info l="Invested" v={money(Number(i.invested), i.currency)} />
+                    <Info l="Buy price" v={i.purchase_price != null ? money(Number(i.purchase_price), i.currency) : "—"} />
                     <Info l="Bought" v={i.purchase_date ?? "—"} />
                   </div>
                   {i.notes && <p className="mt-2 text-[12px] text-mist">{i.notes}</p>}
@@ -170,7 +176,7 @@ function Investments() {
                     {h.slice(0, 10).map((x) => (
                       <div key={x.id} className="flex justify-between py-1.5 text-[12px]">
                         <span className="text-mist">{x.recorded_on}</span>
-                        <span className="num">{rs(Number(x.value))}</span>
+                        <span className="num">{money(Number(x.value), i.currency)}</span>
                       </div>
                     ))}
                   </div>
@@ -186,6 +192,7 @@ function Investments() {
           <>
             <Field label="Name"><input className="field" value={edit.name ?? ""} onChange={(e) => setEdit({ ...edit, name: e.target.value })} placeholder="e.g. Meezan Islamic Fund" /></Field>
             <div className="grid grid-cols-2 gap-3">
+              <Field label="Currency"><CurrencySelect value={edit.currency ?? cur.primary} onChange={(c) => setEdit({ ...edit, currency: c })} /></Field>
               <Field label="Type">
                 <select className="field capitalize" value={edit.asset_type ?? "stocks"} onChange={(e) => setEdit({ ...edit, asset_type: e.target.value })}>
                   {TYPES.map((x) => <option key={x} value={x}>{x}</option>)}
@@ -212,10 +219,10 @@ function Investments() {
       <BottomSheet open={!!upd} onOpenChange={(o) => !o && setUpd(null)} title={`Update ${upd?.inv.name ?? ""}`}>
         {upd && (
           <>
-            <Field label="Current value (Rs)"><input autoFocus className="field num text-2xl" inputMode="decimal" value={upd.value} onChange={(e) => setUpd({ ...upd, value: e.target.value.replace(/[^\d.]/g, "") })} /></Field>
+            <Field label={`Current value (${upd.inv.currency})`}><input autoFocus className="field num text-2xl" inputMode="decimal" value={upd.value} onChange={(e) => setUpd({ ...upd, value: e.target.value.replace(/[^\d.]/g, "") })} /></Field>
             <Field label="As of"><input type="date" className="field" value={upd.date} onChange={(e) => setUpd({ ...upd, date: e.target.value })} /></Field>
             <p className="mb-2 text-[12px] text-mist">
-              Gain would be <span className="num font-semibold">{rs(Number(upd.value) - Number(upd.inv.invested), { sign: true })}</span>. Previous values stay in history.
+              Gain would be <span className="num font-semibold">{money(Number(upd.value) - Number(upd.inv.invested), upd.inv.currency, { sign: true })}</span>. Previous values stay in history.
             </p>
             <PrimaryButton onClick={updateValue}>Save value</PrimaryButton>
           </>

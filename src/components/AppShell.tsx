@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { startReminderLoop } from "@/lib/reminders";
+import { CurrencyProvider } from "./CurrencyProvider";
 import { Plus, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AddTransactionSheet } from "./AddTransactionSheet";
@@ -62,7 +63,12 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
             <Link to="/settings" aria-label="Profile and settings" className="glass-l grid size-9 place-items-center rounded-full text-[13px] font-semibold">{initials(name)}</Link>
           </div>
         </header>
-        <Suspense fallback={<div className="mt-10 text-center text-sm text-mist">Loading…</div>}>{children}</Suspense>
+        <CurrencyProvider userId={user.id} meta={user.user_metadata ?? {}}>
+          <Suspense fallback={<div className="mt-10 text-center text-sm text-mist">Loading…</div>}>{children}</Suspense>
+          <Suspense fallback={null}>
+            <AddTransactionSheet open={addOpen} onOpenChange={setAddOpen} />
+          </Suspense>
+        </CurrencyProvider>
       </div>
 
       <button
@@ -89,9 +95,6 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
         </div>
       </nav>
 
-      <Suspense fallback={null}>
-        <AddTransactionSheet open={addOpen} onOpenChange={setAddOpen} />
-      </Suspense>
     </div>
   );
 }

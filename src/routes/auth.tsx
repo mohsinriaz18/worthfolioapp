@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { Backdrop } from "@/components/AppShell";
+import { CurrencySelect } from "@/components/CurrencySelect";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -23,6 +24,8 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [primary, setPrimary] = useState("PKR");
+  const [secondary, setSecondary] = useState("USD");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -41,7 +44,7 @@ function AuthPage() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) toast.error(error.message);
     } else {
-      const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + "/dashboard" } });
+      const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + "/dashboard", data: { primary_currency: primary, secondary_currency: secondary } } });
       if (error) toast.error(error.message);
       else toast.success("Check your email to confirm your account");
     }
@@ -64,6 +67,18 @@ function AuthPage() {
         <form onSubmit={submit} className="glass mt-6 rounded-[22px] p-5">
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="field mb-3" />
           <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="field mb-4" />
+          {mode === "up" && (
+            <div className="mb-4 grid grid-cols-2 gap-3">
+              <div>
+                <p className="eyebrow mb-1.5 !tracking-[0.14em]">Primary currency</p>
+                <CurrencySelect compact value={primary} onChange={setPrimary} label="Primary currency" />
+              </div>
+              <div>
+                <p className="eyebrow mb-1.5 !tracking-[0.14em]">Secondary</p>
+                <CurrencySelect compact value={secondary} onChange={setSecondary} label="Secondary currency" />
+              </div>
+            </div>
+          )}
           <button disabled={busy} className="glow w-full rounded-2xl bg-primary py-3.5 font-semibold text-primary-foreground disabled:opacity-50">
             {busy ? "Please wait…" : mode === "in" ? "Sign in" : "Create account"}
           </button>

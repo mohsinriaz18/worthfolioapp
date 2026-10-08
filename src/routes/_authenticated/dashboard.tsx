@@ -3,8 +3,10 @@ import { useState } from "react";
 import { AppShell, EmptyNote, PeriodToggle, SectionHead } from "@/components/AppShell";
 import { NetWorthChart } from "@/components/NetWorthChart";
 import { TxnRow } from "@/components/TxnRow";
+import { useCurrency } from "@/components/CurrencyProvider";
+import { convert, getCurrency } from "@/lib/currency";
 import {
-  CHART_COLORS, categoryBreakdown, debtRemaining, financeQuery, goalStatus, flowSummary, initials, netWorthSeries, nextDue, pct, periodRange, rs, totals, useFinance, type Period,
+  CHART_COLORS, categoryBreakdown, money, debtRemaining, financeQuery, goalStatus, flowSummary, initials, netWorthSeries, nextDue, pct, periodRange, rs, totals, useFinance, type Period,
 } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -22,6 +24,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 function Dashboard() {
   const d = useFinance();
   const [period, setPeriod] = useState<Period>("month");
+  const cur = useCurrency();
+  const pair = cur.primary === cur.secondary ? [cur.primary] : [cur.primary, cur.secondary];
   const t = totals(d);
   const series = netWorthSeries(d, period);
   const prev = series[series.length - 2]?.value ?? 0;
@@ -37,7 +41,21 @@ function Dashboard() {
 
   return (
     <>
-      <div className="glass rise mt-5 rounded-[22px] px-5 py-5">
+      <div className="mt-5 flex items-center justify-between">
+        <span className="text-[12px] text-mist">Displaying in</span>
+        <div className="glass-l flex gap-1 rounded-full p-1">
+          {(pair.includes(cur.display) ? pair : [...pair, cur.display]).map((c) => (
+            <button
+              key={c}
+              onClick={() => cur.setDisplay(c)}
+              className={`rounded-full px-3 py-1 text-[12px] font-semibold ${cur.display === c ? "bg-primary text-primary-foreground" : "text-mist"}`}
+            >
+              {getCurrency(c).symbol} {c}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="glass rise mt-3 rounded-[22px] px-5 py-5">
         <p className="eyebrow">Net worth · {new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</p>
         <div className="mt-1 flex items-end justify-between gap-2">
           <p className="num text-[30px] leading-none font-semibold">{rs(t.netWorth)}</p>
@@ -99,7 +117,7 @@ function Dashboard() {
                 <div key={g.id}>
                   <div className="flex justify-between text-[12px]">
                     <span className="font-medium">{g.name}</span>
-                    <span className="num text-mist">{rs(s.saved)} / {rs(s.target)}</span>
+                    <span className="num text-mist">{money(s.saved, g.currency)} / {money(s.target, g.currency)}</span>
                   </div>
                   <div className="mt-1.5 h-1.5 rounded-full bg-foreground/10"><div className="h-full rounded-full bg-primary" style={{ width: `${s.pctDone}%` }} /></div>
                 </div>
@@ -122,7 +140,7 @@ function Dashboard() {
                 <span className="truncate text-[12px] font-semibold">{acc.name}</span>
                 {acc.last4 && <span className="text-[11px] text-mist">••{acc.last4}</span>}
               </div>
-              <p className={`num mt-6 text-[18px] font-semibold ${balance < 0 ? "text-coral" : ""}`}>{rs(balance)}</p>
+              <p className={`num mt-6 text-[18px] font-semibold ${balance < 0 ? "text-coral" : ""}`}>{money(balance, acc.currency)}</p>
               <p className="text-[11px] capitalize text-mist">{[acc.bank, acc.account_type].filter(Boolean).join(" · ")}</p>
             </div>
           ))}
@@ -145,7 +163,7 @@ function Dashboard() {
                   {days < 0 ? `Overdue ${-days}d` : days === 0 ? "Due today" : `Due ${due.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} · ${days}d`}
                 </p>
               </div>
-              <p className="num text-[13px] font-semibold">{rs(Number(b.amount))}</p>
+              <p className="num text-[13px] font-semibold">{money(Number(b.amount), b.currency)}</p>
             </div>
           ))}
         </div>
@@ -185,7 +203,7 @@ function Dashboard() {
         {d.investments.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
             {Object.entries(
-              d.investments.reduce<Record<string, number>>((m, i) => ((m[i.asset_type] = (m[i.asset_type] ?? 0) + Number(i.current_value)), m), {}),
+              d.investments.reduce<Record<string, number>>((m, i) => ((m[i.asset_type] = (m[i.asset_type] ?? 0) + convert(Number(i.current_value), i.currency)), m), {}),
             ).map(([k, v]) => (
               <span key={k} className="rounded-full bg-foreground/10 px-2.5 py-1 capitalize">
                 {k} {t.portfolio ? Math.round((v / t.portfolio) * 100) : 0}%

@@ -15,6 +15,13 @@
       "when": 1791448798874,
       "tag": "0001_debts_goals_investments_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791451699680,
+      "tag": "0002_multi_currency",
+      "breakpoints": true
     }
   ]
 }

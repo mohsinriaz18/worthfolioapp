@@ -3,6 +3,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { todayISO, useFinance, useRefreshFinance } from "@/lib/finance";
 import { BottomSheet, Field, PrimaryButton } from "./Sheet";
+import { CurrencySelect } from "./CurrencySelect";
+import { useCurrency } from "./CurrencyProvider";
+import { getCurrency, usdPerUnit } from "@/lib/currency";
 
 type Kind = "expense" | "income" | "transfer";
 
@@ -19,6 +22,8 @@ export function AddTransactionSheet({ open, onOpenChange }: { open: boolean; onO
   const [customOpen, setCustomOpen] = useState(false);
   const [customName, setCustomName] = useState("");
   const [saving, setSaving] = useState(false);
+  const cur = useCurrency();
+  const [currency, setCurrency] = useState(cur.lastUsed);
 
   useEffect(() => {
     if (open) {
@@ -27,6 +32,7 @@ export function AddTransactionSheet({ open, onOpenChange }: { open: boolean; onO
       setDate(todayISO());
       setCategoryId(null);
       setAccountId(d.accounts[0]?.id ?? "");
+      setCurrency(cur.lastUsed);
       setToAccountId(d.accounts[1]?.id ?? "");
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -62,7 +68,10 @@ export function AddTransactionSheet({ open, onOpenChange }: { open: boolean; onO
       to_account_id: kind === "transfer" ? toAccountId : null,
       occurred_on: date,
       note: note.trim() || null,
+      currency,
+      fx_usd: usdPerUnit(currency),
     });
+    cur.rememberCurrency(currency);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success(kind === "income" ? "Income recorded" : kind === "expense" ? "Expense recorded" : "Transfer recorded");
@@ -90,15 +99,16 @@ export function AddTransactionSheet({ open, onOpenChange }: { open: boolean; onO
       </div>
 
       <div className="mb-4 flex items-baseline gap-2 border-b border-border pb-2">
-        <span className="num text-xl text-mist">Rs</span>
+        <span className="num text-xl text-mist">{getCurrency(currency).symbol}</span>
         <input
           inputMode="decimal"
           autoFocus
           value={amount}
           onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
           placeholder="0"
-          className="num w-full bg-transparent text-4xl font-semibold text-foreground outline-none placeholder:text-mist/50"
+          className="num w-full min-w-0 bg-transparent text-4xl font-semibold text-foreground outline-none placeholder:text-mist/50"
         />
+        <CurrencySelect compact value={currency} onChange={setCurrency} label="Entry currency" />
       </div>
 
       {kind !== "transfer" && (
@@ -135,7 +145,15 @@ export function AddTransactionSheet({ open, onOpenChange }: { open: boolean; onO
 
       <div className="grid grid-cols-2 gap-3">
         <Field label={kind === "transfer" ? "From" : kind === "income" ? "Into account" : "From account"}>
-          <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="field">
+          <select
+            value={accountId}
+            onChange={(e) => {
+              setAccountId(e.target.value);
+              const a = d.accounts.find((x) => x.id === e.target.value);
+              if (a) setCurrency(a.currency);
+            }}
+            className="field"
+          >
             <option value="">— Cash / none —</option>
             {d.accounts.map((a) => (
               <option key={a.id} value={a.id}>

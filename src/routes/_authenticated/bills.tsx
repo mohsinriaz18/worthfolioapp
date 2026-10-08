@@ -4,7 +4,11 @@ import { toast } from "sonner";
 import { AppShell, EmptyNote, SectionHead } from "@/components/AppShell";
 import { BottomSheet, Field, PrimaryButton } from "@/components/Sheet";
 import { supabase } from "@/integrations/supabase/client";
-import { financeQuery, initials, nextDue, rs, todayISO, useFinance, useRefreshFinance, type Bill } from "@/lib/finance";
+import { CurrencySelect } from "@/components/CurrencySelect";
+import { useCurrency } from "@/components/CurrencyProvider";
+import { getCurrency, usdPerUnit } from "@/lib/currency";
+
+import { financeQuery, initials, money, nextDue, rs, todayISO, useFinance, useRefreshFinance, type Bill } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/bills")({
   head: () => ({ meta: [{ title: "Bills — Worthfolio" }, { name: "description", content: "Recurring bills, due dates and payments." }] }),
@@ -24,6 +28,7 @@ function Bills() {
   const [edit, setEdit] = useState<Partial<Bill> | null>(null);
   const [paying, setPaying] = useState<Bill | null>(null);
   const [payAcc, setPayAcc] = useState("");
+  const cur = useCurrency();
   const list = d.bills.map((b) => ({ b, ...nextDue(b) })).sort((a, b) => a.days - b.days);
   const monthly = d.bills.reduce((s, b) => s + Number(b.amount) / (b.frequency === "yearly" ? 12 : b.frequency === "quarterly" ? 3 : 1), 0);
   const dueSoon = list.filter((x) => x.days <= 7);
@@ -37,6 +42,7 @@ function Bills() {
       due_day: Math.min(31, Math.max(1, Number(edit.due_day ?? 1))),
       frequency: edit.frequency ?? "monthly",
       category_id: edit.category_id || null,
+      currency: edit.currency ?? cur.primary,
     };
     const { error } = edit.id ? await supabase.from("bills").update(row).eq("id", edit.id) : await supabase.from("bills").insert(row);
     if (error) { toast.error(error.message); return; }
@@ -53,6 +59,8 @@ function Bills() {
     const { error } = await supabase.from("transactions").insert({
       type: "expense",
       amount: Number(paying.amount),
+      currency: paying.currency,
+      fx_usd: usdPerUnit(paying.currency),
       category_id: paying.category_id ?? d.categories.find((c) => c.name === "Utilities")?.id ?? null,
       account_id: payAcc || null,
       note: paying.name,
@@ -91,7 +99,7 @@ function Bills() {
               </p>
             </button>
             <div className="text-right">
-              <p className="num text-[13px] font-semibold">{rs(Number(b.amount))}</p>
+              <p className="num text-[13px] font-semibold">{money(Number(b.amount), b.currency)}</p>
               <button
                 onClick={() => {
                   setPaying(b);
@@ -111,7 +119,7 @@ function Bills() {
           <>
             <Field label="Bill name"><input className="field" value={edit.name ?? ""} onChange={(e) => setEdit({ ...edit, name: e.target.value })} placeholder="e.g. K-Electric" /></Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Amount (Rs)"><input className="field num" inputMode="decimal" value={edit.amount ?? ""} onChange={(e) => setEdit({ ...edit, amount: e.target.value as unknown as number })} /></Field>
+              <Field label={`Amount (${getCurrency(edit.currency ?? cur.primary).symbol})`}><input className="field num" inputMode="decimal" value={edit.amount ?? ""} onChange={(e) => setEdit({ ...edit, amount: e.target.value as unknown as number })} /></Field>
               <Field label="Due day of month"><input className="field num" inputMode="numeric" value={edit.due_day ?? ""} onChange={(e) => setEdit({ ...edit, due_day: e.target.value as unknown as number })} /></Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -120,6 +128,9 @@ function Bills() {
                   <option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option>
                 </select>
               </Field>
+              <Field label="Currency"><CurrencySelect value={edit.currency ?? cur.primary} onChange={(c) => setEdit({ ...edit, currency: c })} /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <Field label="Category">
                 <select className="field" value={edit.category_id ?? ""} onChange={(e) => setEdit({ ...edit, category_id: e.target.value })}>
                   <option value="">—</option>
@@ -134,7 +145,7 @@ function Bills() {
       </BottomSheet>
 
       <BottomSheet open={!!paying} onOpenChange={(o) => !o && setPaying(null)} title={`Pay ${paying?.name ?? ""}`}>
-        <p className="num mb-4 text-3xl font-semibold">{rs(Number(paying?.amount ?? 0))}</p>
+        <p className="num mb-4 text-3xl font-semibold">{money(Number(paying?.amount ?? 0), paying?.currency ?? "PKR")}</p>
         <Field label="Paid from">
           <select className="field" value={payAcc} onChange={(e) => setPayAcc(e.target.value)}>
             <option value="">— Cash / none —</option>

@@ -1,5 +1,5 @@
 import type { FinanceData, Txn } from "@/lib/finance";
-import { prettyDate, rs } from "@/lib/finance";
+import { money, prettyDate } from "@/lib/finance";
 
 export function TxnRow({ t, d, onDelete }: { t: Txn; d: FinanceData; onDelete?: () => void }) {
   const c = d.categories.find((x) => x.id === t.category_id);
@@ -20,7 +20,7 @@ export function TxnRow({ t, d, onDelete }: { t: Txn; d: FinanceData; onDelete?: 
       </div>
       <p className={`num text-[13px] font-semibold ${income ? "text-primary" : transfer ? "text-mist" : "text-foreground"}`}>
         {income ? "+" : transfer ? "" : "−"}
-        {rs(Number(t.amount)).replace("−", "")}
+        {money(Number(t.amount), t.currency)}
       </p>
       {onDelete && (
         <button onClick={onDelete} aria-label="Delete" className="text-[12px] text-mist hover:text-coral">✕</button>

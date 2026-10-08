@@ -4,8 +4,11 @@ import { toast } from "sonner";
 import { AppShell, EmptyNote, SectionHead } from "@/components/AppShell";
 import { BottomSheet, Field, PrimaryButton } from "@/components/Sheet";
 import { TxnRow } from "@/components/TxnRow";
+import { CurrencySelect } from "@/components/CurrencySelect";
+import { useCurrency } from "@/components/CurrencyProvider";
+
 import { supabase } from "@/integrations/supabase/client";
-import { financeQuery, rs, totals, useFinance, useRefreshFinance, type Account } from "@/lib/finance";
+import { financeQuery, money, rs, totals, useFinance, useRefreshFinance, type Account } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/accounts")({
   head: () => ({ meta: [{ title: "Bank accounts — Worthfolio" }, { name: "description", content: "All your bank accounts, wallets and cards with live balances." }] }),
@@ -27,6 +30,7 @@ function Accounts() {
   const t = totals(d);
   const [edit, setEdit] = useState<Partial<Account> | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const cur = useCurrency();
 
   async function save() {
     if (!edit?.name) { toast.error("Name required"); return; }
@@ -36,6 +40,7 @@ function Accounts() {
       account_type: edit.account_type ?? "checking",
       last4: edit.last4 || null,
       opening_balance: Number(edit.opening_balance ?? 0),
+      currency: edit.currency ?? cur.primary,
     };
     const { error } = edit.id ? await supabase.from("accounts").update(row).eq("id", edit.id) : await supabase.from("accounts").insert(row);
     if (error) { toast.error(error.message); return; }
@@ -75,7 +80,7 @@ function Accounts() {
                   <p className="truncate text-[14px] font-semibold">{acc.name}</p>
                   <p className="text-[11px] capitalize text-mist">{[acc.bank, acc.account_type, acc.last4 && `••${acc.last4}`].filter(Boolean).join(" · ")}</p>
                 </div>
-                <p className={`num text-[15px] font-semibold ${balance < 0 ? "text-coral" : ""}`}>{rs(balance)}</p>
+                <p className={`num text-[15px] font-semibold ${balance < 0 ? "text-coral" : ""}`}>{money(balance, acc.currency)}</p>
               </button>
               {open && (
                 <div className="border-t border-foreground/10">
@@ -101,6 +106,7 @@ function Accounts() {
               <Field label="Bank"><input className="field" value={edit.bank ?? ""} onChange={(e) => setEdit({ ...edit, bank: e.target.value })} placeholder="HBL, Meezan…" /></Field>
               <Field label="Last 4 digits"><input className="field" maxLength={4} inputMode="numeric" value={edit.last4 ?? ""} onChange={(e) => setEdit({ ...edit, last4: e.target.value })} /></Field>
             </div>
+            <Field label="Currency"><CurrencySelect value={edit.currency ?? cur.primary} onChange={(c) => setEdit({ ...edit, currency: c })} /></Field>
             <Field label="Type">
               <select className="field capitalize" value={edit.account_type ?? "checking"} onChange={(e) => setEdit({ ...edit, account_type: e.target.value })}>
                 {TYPES.map((x) => <option key={x} value={x}>{x}</option>)}
