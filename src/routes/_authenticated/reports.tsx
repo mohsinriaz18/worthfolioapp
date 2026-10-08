@@ -6,7 +6,6 @@ import {
   CHART_COLORS, categoryBreakdown, compactRs, money, debtRemaining, financeQuery, flowSummary, goalStatus, inRange, pct, periodRange, rs, toISO, todayISO, totals, useFinance, type Period,
 } from "@/lib/finance";
 import { buildReport, downloadCsv, downloadXlsx } from "@/lib/export";
-import { CurrencySelect } from "@/components/CurrencySelect";
 import { useCurrency } from "@/components/CurrencyProvider";
 
 export const Route = createFileRoute("/_authenticated/reports")({
@@ -110,7 +109,7 @@ function Reports() {
 
       <div className="no-print mt-3 flex items-center justify-between gap-3">
         <span className="text-[12px] text-mist">Report currency</span>
-        <CurrencySelect compact value={cur.display} onChange={cur.setDisplay} label="Report currency" />
+        <PeriodToggle value={cur.display} onChange={cur.setDisplay} options={[cur.primary, cur.secondary].map((c) => ({ v: c, l: c }))} />
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <Stat label="Earned" value={rs(f.income)} sub={`${pct(pf.income ? ((f.income - pf.income) / pf.income) * 100 : 0)} vs prev`} tone="text-primary" />

@@ -10,7 +10,7 @@ type Ctx = {
   lastUsed: string;
   setDisplay: (c: string) => void;
   rememberCurrency: (c: string) => void;
-  savePrefs: (p: { primary?: string; secondary?: string; manual_rates?: Record<string, number> }) => Promise<void>;
+  savePrefs: (p: { primary?: string; secondary?: string }) => Promise<void>;
   version: number;
 };
 const CurrencyCtx = createContext<Ctx | null>(null);
@@ -45,12 +45,13 @@ export function CurrencyProvider({ userId, meta, children }: { userId: string; m
   const p = profile.data;
   useEffect(() => {
     if (!p) return;
-    setCurrencyContext({ primary: p.primary_currency, secondary: p.secondary_currency, display: p.display_currency });
-    loadRates((p.manual_rates ?? {}) as Record<string, number>).finally(() => {
+    // primary is always the default view; secondary is a session-only toggle
+    setCurrencyContext({ primary: p.primary_currency, secondary: p.secondary_currency, display: p.primary_currency });
+    loadRates().finally(() => {
       setReady(true);
       setVersion((v) => v + 1);
     });
-  }, [p?.primary_currency, p?.secondary_currency, p?.display_currency, JSON.stringify(p?.manual_rates)]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [p?.primary_currency, p?.secondary_currency]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function update(patch: Record<string, unknown>) {
     await supabase.from("profiles").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", userId);
@@ -66,15 +67,18 @@ export function CurrencyProvider({ userId, meta, children }: { userId: string; m
     setDisplay: (c) => {
       setCurrencyContext({ display: c });
       setVersion((v) => v + 1);
-      update({ display_currency: c });
     },
     rememberCurrency: (c) => {
       if (c !== p?.last_used_currency) update({ last_used_currency: c });
     },
     savePrefs: async (prefs) => {
-      const patch: Record<string, unknown> = { ...prefs };
-      if (prefs.primary && fx().display !== prefs.secondary && fx().display !== prefs.primary) patch["display_currency"] = prefs.primary;
-      await update(patch);
+      const { error } = await supabase
+        .from("profiles")
+        .upsert({ id: userId, primary_currency: prefs.primary ?? fx().primary, secondary_currency: prefs.secondary ?? fx().secondary, updated_at: new Date().toISOString() });
+      if (error) throw new Error(error.message);
+      setCurrencyContext({ primary: prefs.primary ?? fx().primary, secondary: prefs.secondary ?? fx().secondary, display: prefs.primary ?? fx().primary });
+      await qc.invalidateQueries({ queryKey: ["profile", userId] });
+      setVersion((v) => v + 1);
     },
   };
 

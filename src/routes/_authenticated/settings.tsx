@@ -9,7 +9,7 @@ import { getThemePref, setThemePref, type ThemePref } from "@/lib/theme";
 import { checkReminderNow, notify } from "@/lib/reminders";
 import { CurrencySelect } from "@/components/CurrencySelect";
 import { useCurrency } from "@/components/CurrencyProvider";
-import { convert, fx, getCurrency } from "@/lib/currency";
+import { getCurrency } from "@/lib/currency";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Settings — Worthfolio" }, { name: "description", content: "Profile, password, theme and reminder settings." }] }),
@@ -38,8 +38,16 @@ function Settings() {
   const [pw, setPw] = useState({ current: "", next: "" });
   const [perm, setPerm] = useState<string>("default");
   const cur = useCurrency();
-  const liveRate = convert(1, cur.secondary, cur.primary);
-  const [manual, setManual] = useState("");
+  async function changeCur(p: { primary?: string; secondary?: string }) {
+    const primary = p.primary ?? cur.primary, secondary = p.secondary ?? cur.secondary;
+    if (primary === secondary) { toast.error("Primary and secondary must be different"); return; }
+    try {
+      await cur.savePrefs({ primary, secondary });
+      toast.success("Currency updated");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
 
   useEffect(() => {
     setTheme(getThemePref());
@@ -112,36 +120,13 @@ function Settings() {
 
       <SectionHead title="Currency" />
       <div className="glass mt-3 rounded-[18px] p-4">
-        <Field label="Primary currency"><CurrencySelect value={cur.primary} onChange={(c) => cur.savePrefs({ primary: c }).then(() => toast.success("Primary currency updated"))} label="Primary currency" /></Field>
-        <Field label="Secondary currency"><CurrencySelect value={cur.secondary} onChange={(c) => cur.savePrefs({ secondary: c }).then(() => toast.success("Secondary currency updated"))} label="Secondary currency" /></Field>
-        <Field label="Display currency"><CurrencySelect value={cur.display} onChange={cur.setDisplay} label="Display currency" /></Field>
-        <div className="rounded-xl bg-foreground/5 px-3 py-3">
-          <p className="num text-[15px] font-semibold">1 {cur.secondary} = {liveRate.toLocaleString("en-US", { maximumFractionDigits: 4 })} {cur.primary}</p>
-          <p className="text-[11px] text-mist">
-            Source: {fx().source === "live" ? "live market rate" : fx().source === "cached" ? "saved live rate" : "built-in estimate"}
-            {fx().updatedAt ? ` · ${new Date(fx().updatedAt!).toLocaleString("en-GB")}` : ""}
-          </p>
-        </div>
-        <div className="mt-3 flex gap-2">
-          <input className="field num" inputMode="decimal" value={manual} onChange={(e) => setManual(e.target.value.replace(/[^\d.]/g, ""))} placeholder={`Custom: 1 ${cur.secondary} = ? ${cur.primary}`} />
-          <button
-            onClick={async () => {
-              const x = Number(manual);
-              if (!x) { toast.error("Enter a rate"); return; }
-              const perUsdPrimary = fx().perUsd[cur.primary] ?? 1;
-              await cur.savePrefs({ manual_rates: { [cur.secondary]: perUsdPrimary / x } });
-              setManual("");
-              toast.success("Custom rate saved");
-            }}
-            className="rounded-xl bg-primary px-4 text-[13px] font-semibold text-primary-foreground"
-          >
-            Set
-          </button>
-        </div>
-        <button onClick={() => cur.savePrefs({ manual_rates: {} }).then(() => { localStorage.removeItem("wf-fx-v1"); toast.success("Using live rates"); })} className="mt-2 text-[12px] text-primary">
-          Use live rates
-        </button>
-        <p className="mt-2 text-[11px] text-mist">Changing currencies never changes the amount or currency of entries you've already saved. {getCurrency(cur.primary).name} is used by default for new entries.</p>
+        <p className="eyebrow mb-1.5 !tracking-[0.14em]">Primary currency</p>
+        <CurrencySelect value={cur.primary} onChange={(c) => changeCur({ primary: c })} label="Primary currency" />
+        <p className="eyebrow mt-3 mb-1.5 !tracking-[0.14em]">Secondary currency</p>
+        <CurrencySelect value={cur.secondary} onChange={(c) => changeCur({ secondary: c })} label="Secondary currency" />
+        <p className="mt-3 text-[11px] text-mist">
+          Totals show in {getCurrency(cur.primary).name} by default; switch to {cur.secondary} anytime from the dashboard. Changing these never alters entries you've already saved.
+        </p>
       </div>
 
       <SectionHead title="Appearance" />
