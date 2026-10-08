@@ -19,6 +19,7 @@ export type Database = {
           account_type: string
           bank: string | null
           created_at: string
+          currency: string
           id: string
           last4: string | null
           name: string
@@ -29,6 +30,7 @@ export type Database = {
           account_type?: string
           bank?: string | null
           created_at?: string
+          currency?: string
           id?: string
           last4?: string | null
           name: string
@@ -39,6 +41,7 @@ export type Database = {
           account_type?: string
           bank?: string | null
           created_at?: string
+          currency?: string
           id?: string
           last4?: string | null
           name?: string
@@ -52,6 +55,7 @@ export type Database = {
           amount: number
           category_id: string | null
           created_at: string
+          currency: string
           due_day: number
           frequency: string
           id: string
@@ -63,6 +67,7 @@ export type Database = {
           amount?: number
           category_id?: string | null
           created_at?: string
+          currency?: string
           due_day?: number
           frequency?: string
           id?: string
@@ -74,6 +79,7 @@ export type Database = {
           amount?: number
           category_id?: string | null
           created_at?: string
+          currency?: string
           due_day?: number
           frequency?: string
           id?: string
@@ -169,6 +175,7 @@ export type Database = {
       debts: {
         Row: {
           created_at: string
+          currency: string
           debt_type: string
           due_day: number
           frequency: string
@@ -186,6 +193,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          currency?: string
           debt_type?: string
           due_day?: number
           frequency?: string
@@ -203,6 +211,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          currency?: string
           debt_type?: string
           due_day?: number
           frequency?: string
@@ -262,6 +271,7 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          currency: string
           id: string
           name: string
           notes: string | null
@@ -272,6 +282,7 @@ export type Database = {
         Insert: {
           category?: string
           created_at?: string
+          currency?: string
           id?: string
           name: string
           notes?: string | null
@@ -282,6 +293,7 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
+          currency?: string
           id?: string
           name?: string
           notes?: string | null
@@ -330,6 +342,7 @@ export type Database = {
         Row: {
           asset_type: string
           created_at: string
+          currency: string
           current_value: number
           id: string
           invested: number
@@ -345,6 +358,7 @@ export type Database = {
         Insert: {
           asset_type?: string
           created_at?: string
+          currency?: string
           current_value?: number
           id?: string
           invested?: number
@@ -360,6 +374,7 @@ export type Database = {
         Update: {
           asset_type?: string
           created_at?: string
+          currency?: string
           current_value?: number
           id?: string
           invested?: number
@@ -398,29 +413,44 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          display_currency: string
           full_name: string | null
           id: string
           last_reminder_on: string | null
+          last_used_currency: string | null
+          manual_rates: Json
+          primary_currency: string
           reminder_time: string
           reminders_enabled: boolean
+          secondary_currency: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          display_currency?: string
           full_name?: string | null
           id: string
           last_reminder_on?: string | null
+          last_used_currency?: string | null
+          manual_rates?: Json
+          primary_currency?: string
           reminder_time?: string
           reminders_enabled?: boolean
+          secondary_currency?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          display_currency?: string
           full_name?: string | null
           id?: string
           last_reminder_on?: string | null
+          last_used_currency?: string | null
+          manual_rates?: Json
+          primary_currency?: string
           reminder_time?: string
           reminders_enabled?: boolean
+          secondary_currency?: string
           updated_at?: string
         }
         Relationships: []
@@ -431,6 +461,8 @@ export type Database = {
           amount: number
           category_id: string | null
           created_at: string
+          currency: string
+          fx_usd: number | null
           id: string
           note: string | null
           occurred_on: string
@@ -443,6 +475,8 @@ export type Database = {
           amount: number
           category_id?: string | null
           created_at?: string
+          currency?: string
+          fx_usd?: number | null
           id?: string
           note?: string | null
           occurred_on?: string
@@ -455,6 +489,8 @@ export type Database = {
           amount?: number
           category_id?: string | null
           created_at?: string
+          currency?: string
+          fx_usd?: number | null
           id?: string
           note?: string | null
           occurred_on?: string
