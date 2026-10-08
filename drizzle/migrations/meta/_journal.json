@@ -8,6 +8,13 @@
       "when": 1791281634533,
       "tag": "0000_finance_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791448798874,
+      "tag": "0001_debts_goals_investments_profiles",
+      "breakpoints": true
     }
   ]
 }
