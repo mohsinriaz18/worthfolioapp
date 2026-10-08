@@ -1,6 +1,7 @@
 import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Suspense, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { startReminderLoop } from "@/lib/reminders";
 import { Plus, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AddTransactionSheet } from "./AddTransactionSheet";
@@ -9,9 +10,9 @@ import { initials } from "@/lib/finance";
 const tabs = [
   { to: "/dashboard", label: "Home", icon: "◈" },
   { to: "/accounts", label: "Accounts", icon: "▤" },
-  { to: "/bills", label: "Bills", icon: "◐" },
   { to: "/investments", label: "Invest", icon: "◔" },
-  { to: "/reports", label: "Reports", icon: "▥" },
+  { to: "/goals", label: "Goals", icon: "◎" },
+  { to: "/more", label: "More", icon: "☰" },
 ] as const;
 
 export function Backdrop() {
@@ -32,6 +33,7 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [addOpen, setAddOpen] = useState(false);
+  useEffect(() => startReminderLoop(), []);
   const name = (user.user_metadata?.["full_name"] as string | undefined) ?? user.email ?? "You";
 
   async function signOut() {
@@ -47,9 +49,9 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
       <div className="relative z-10 mx-auto w-full max-w-[480px] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-36">
         <header className="no-print flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center gap-2.5">
-            <div className="glow grid size-9 place-items-center rounded-[11px] bg-primary text-lg font-extrabold text-primary-foreground">L</div>
+            <div className="glow grid size-9 place-items-center rounded-[11px] bg-primary text-lg font-extrabold text-primary-foreground">W</div>
             <div>
-              <p className="eyebrow">Ledger</p>
+              <p className="eyebrow">Worthfolio</p>
               <p className="text-[13px] font-semibold">{title}</p>
             </div>
           </Link>
@@ -57,7 +59,7 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
             <button onClick={signOut} aria-label="Sign out" className="glass-l grid size-9 place-items-center rounded-full text-mist">
               <LogOut className="size-4" />
             </button>
-            <div className="glass-l grid size-9 place-items-center rounded-full text-[13px] font-semibold">{initials(name)}</div>
+            <Link to="/settings" aria-label="Profile and settings" className="glass-l grid size-9 place-items-center rounded-full text-[13px] font-semibold">{initials(name)}</Link>
           </div>
         </header>
         <Suspense fallback={<div className="mt-10 text-center text-sm text-mist">Loading…</div>}>{children}</Suspense>

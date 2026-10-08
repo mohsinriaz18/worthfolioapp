@@ -1,6 +1,6 @@
 {
-  "name": "Ledger — Money & Net Worth",
-  "short_name": "Ledger",
+  "name": "Worthfolio",
+  "short_name": "Worthfolio",
   "description": "Track income, expenses, bank accounts, bills, investments and net worth.",
   "start_url": "/dashboard",
   "scope": "/",

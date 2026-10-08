@@ -130,6 +130,7 @@ html.light {
   --glass-border: oklch(0 0 0 / 8%);
   --glass-border-l: oklch(0 0 0 / 12%);
   --field-bg: oklch(1 0 0);
+  --date-filter: none;
   color-scheme: light;
 }
 

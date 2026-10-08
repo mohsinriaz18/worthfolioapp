@@ -7,7 +7,7 @@ import {
 } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/reports")({
-  head: () => ({ meta: [{ title: "Reports — Ledger" }, { name: "description", content: "Monthly, quarterly and yearly reports of income and spending." }] }),
+  head: () => ({ meta: [{ title: "Reports — Worthfolio" }, { name: "description", content: "Monthly, quarterly and yearly reports of income and spending." }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(financeQuery),
   component: () => (
     <AppShell title="Reports">

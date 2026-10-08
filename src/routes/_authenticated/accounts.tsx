@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { financeQuery, rs, totals, useFinance, useRefreshFinance, type Account } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/accounts")({
-  head: () => ({ meta: [{ title: "Bank accounts — Ledger" }, { name: "description", content: "All your bank accounts, wallets and cards with live balances." }] }),
+  head: () => ({ meta: [{ title: "Bank accounts — Worthfolio" }, { name: "description", content: "All your bank accounts, wallets and cards with live balances." }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(financeQuery),
   component: () => (
     <AppShell title="Accounts">

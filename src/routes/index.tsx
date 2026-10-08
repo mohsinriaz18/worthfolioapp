@@ -4,9 +4,9 @@ import { Backdrop } from "@/components/AppShell";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Ledger — Track Money, Bills & Net Worth" },
+      { title: "Worthfolio — Track Money, Bills & Net Worth" },
       { name: "description", content: "An installable money app: income, expenses, bank accounts, bills, investments, net worth and reports." },
-      { property: "og:title", content: "Ledger — Track Money, Bills & Net Worth" },
+      { property: "og:title", content: "Worthfolio — Track Money, Bills & Net Worth" },
       { property: "og:description", content: "Income, expenses, accounts, bills, investments, net worth and reports in one app." },
     ],
   }),
@@ -20,7 +20,7 @@ function Index() {
     <div className="relative min-h-screen bg-background text-foreground">
       <Backdrop />
       <div className="relative z-10 mx-auto flex min-h-screen max-w-[480px] flex-col justify-center px-5 py-10">
-        <div className="glow mb-6 grid size-14 place-items-center rounded-2xl bg-primary text-2xl font-extrabold text-primary-foreground">L</div>
+        <div className="glow mb-6 grid size-14 place-items-center rounded-2xl bg-primary text-2xl font-extrabold text-primary-foreground">W</div>
         <p className="eyebrow">Private ledger</p>
         <h1 className="mt-2 text-4xl font-extrabold leading-tight">Know exactly where every rupee goes.</h1>
         <p className="mt-3 text-mist">More than an expense tracker — your complete financial picture, on your home screen.</p>

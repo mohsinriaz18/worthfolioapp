@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CHART_COLORS, financeQuery, pct, rs, totals, useFinance, useRefreshFinance, type Investment } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/investments")({
-  head: () => ({ meta: [{ title: "Investments — Ledger" }, { name: "description", content: "Your portfolio: stocks, funds, gold, property, crypto and more." }] }),
+  head: () => ({ meta: [{ title: "Investments — Worthfolio" }, { name: "description", content: "Your portfolio: stocks, funds, gold, property, crypto and more." }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(financeQuery),
   component: () => (
     <AppShell title="Investments">
