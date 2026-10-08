@@ -6,6 +6,8 @@ import {
   CHART_COLORS, categoryBreakdown, compactRs, money, debtRemaining, financeQuery, flowSummary, goalStatus, inRange, pct, periodRange, rs, toISO, todayISO, totals, useFinance, type Period,
 } from "@/lib/finance";
 import { buildReport, downloadCsv, downloadXlsx } from "@/lib/export";
+import { CurrencySelect } from "@/components/CurrencySelect";
+import { useCurrency } from "@/components/CurrencyProvider";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Reports — Worthfolio" }, { name: "description", content: "Monthly, quarterly and yearly reports of income and spending." }] }),
@@ -26,6 +28,7 @@ function Reports() {
   const [from, setFrom] = useState(toISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
   const [to, setTo] = useState(todayISO());
   const tot = totals(d);
+  const cur = useCurrency();
   const r =
     period === "custom"
       ? { start: new Date(from + "T00:00:00"), end: new Date(to + "T00:00:00"), label: "Custom range" }
@@ -105,6 +108,10 @@ function Reports() {
       </div>
       )}
 
+      <div className="no-print mt-3 flex items-center justify-between gap-3">
+        <span className="text-[12px] text-mist">Report currency</span>
+        <CurrencySelect compact value={cur.display} onChange={cur.setDisplay} label="Report currency" />
+      </div>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <Stat label="Earned" value={rs(f.income)} sub={`${pct(pf.income ? ((f.income - pf.income) / pf.income) * 100 : 0)} vs prev`} tone="text-primary" />
         <Stat label="Spent" value={rs(f.expense)} sub={`${pct(pf.expense ? ((f.expense - pf.expense) / pf.expense) * 100 : 0)} vs prev`} tone="text-coral" />
@@ -155,7 +162,7 @@ function Reports() {
           {d.goals.map((g) => {
             const st = goalStatus(g, d.goalContributions);
             const inP = d.goalContributions.filter((c) => c.goal_id === g.id && c.contributed_on >= toISO(r.start) && c.contributed_on <= toISO(r.end)).reduce((a, c) => a + Number(c.amount), 0);
-            return <Line key={g.id} l={`${g.name} · ${Math.round(st.pctDone)}%`} v={`${rs(st.saved)} / ${rs(st.target)} · +${rs(inP)} this period`} small />;
+            return <Line key={g.id} l={`${g.name} · ${Math.round(st.pctDone)}%`} v={`${money(st.saved, g.currency)} / ${money(st.target, g.currency)} · +${money(inP, g.currency)} this period`} small />;
           })}
         </div>
       )}

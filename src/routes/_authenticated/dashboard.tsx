@@ -3,6 +3,8 @@ import { useState } from "react";
 import { AppShell, EmptyNote, PeriodToggle, SectionHead } from "@/components/AppShell";
 import { NetWorthChart } from "@/components/NetWorthChart";
 import { TxnRow } from "@/components/TxnRow";
+import { useCurrency } from "@/components/CurrencyProvider";
+import { getCurrency } from "@/lib/currency";
 import {
   CHART_COLORS, categoryBreakdown, money, debtRemaining, financeQuery, goalStatus, flowSummary, initials, netWorthSeries, nextDue, pct, periodRange, rs, totals, useFinance, type Period,
 } from "@/lib/finance";
@@ -22,6 +24,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 function Dashboard() {
   const d = useFinance();
   const [period, setPeriod] = useState<Period>("month");
+  const cur = useCurrency();
+  const pair = cur.primary === cur.secondary ? [cur.primary] : [cur.primary, cur.secondary];
   const t = totals(d);
   const series = netWorthSeries(d, period);
   const prev = series[series.length - 2]?.value ?? 0;
@@ -37,7 +41,21 @@ function Dashboard() {
 
   return (
     <>
-      <div className="glass rise mt-5 rounded-[22px] px-5 py-5">
+      <div className="mt-5 flex items-center justify-between">
+        <span className="text-[12px] text-mist">Displaying in</span>
+        <div className="glass-l flex gap-1 rounded-full p-1">
+          {(pair.includes(cur.display) ? pair : [...pair, cur.display]).map((c) => (
+            <button
+              key={c}
+              onClick={() => cur.setDisplay(c)}
+              className={`rounded-full px-3 py-1 text-[12px] font-semibold ${cur.display === c ? "bg-primary text-primary-foreground" : "text-mist"}`}
+            >
+              {getCurrency(c).symbol} {c}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="glass rise mt-3 rounded-[22px] px-5 py-5">
         <p className="eyebrow">Net worth · {new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</p>
         <div className="mt-1 flex items-end justify-between gap-2">
           <p className="num text-[30px] leading-none font-semibold">{rs(t.netWorth)}</p>
