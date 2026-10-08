@@ -101,14 +101,43 @@
 
   --glass: linear-gradient(135deg, oklch(1 0 0 / 10%), oklch(1 0 0 / 2%));
   --glass-l: linear-gradient(135deg, oklch(1 0 0 / 16%), oklch(1 0 0 / 5%));
+  --glass-border: oklch(1 0 0 / 10%);
+  --glass-border-l: oklch(1 0 0 / 16%);
+  --field-bg: oklch(1 0 0 / 6%);
   --shadow-glow: 0 6px 18px -4px color-mix(in oklab, var(--accent-teal) 55%, transparent);
+}
+
+html.light {
+  --background: oklch(0.975 0.006 200);
+  --ink2: oklch(0.94 0.01 200);
+  --foreground: oklch(0.22 0.02 225);
+  --mist: oklch(0.48 0.03 220);
+  --accent-teal: oklch(0.62 0.13 170);
+  --accent-blue: oklch(0.55 0.17 255);
+  --gold: oklch(0.66 0.15 70);
+  --coral: oklch(0.58 0.2 30);
+  --card: oklch(1 0 0);
+  --popover: oklch(1 0 0);
+  --primary-foreground: oklch(0.99 0 0);
+  --destructive-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0 0 0 / 5%);
+  --muted: oklch(0 0 0 / 4%);
+  --accent: oklch(0 0 0 / 6%);
+  --border: oklch(0 0 0 / 10%);
+  --input: oklch(0 0 0 / 14%);
+  --glass: linear-gradient(135deg, oklch(1 0 0 / 85%), oklch(1 0 0 / 60%));
+  --glass-l: linear-gradient(135deg, oklch(1 0 0 / 95%), oklch(1 0 0 / 70%));
+  --glass-border: oklch(0 0 0 / 8%);
+  --glass-border-l: oklch(0 0 0 / 12%);
+  --field-bg: oklch(1 0 0);
+  color-scheme: light;
 }
 
 @layer base {
   * {
     border-color: var(--color-border);
   }
-  html {
+  html:not(.light) {
     color-scheme: dark;
   }
   body {
@@ -118,17 +147,17 @@
     -webkit-tap-highlight-color: transparent;
   }
   input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(0.8);
+    filter: var(--date-filter, invert(0.8));
   }
 }
 
 @utility glass {
   background: var(--glass);
-  border: 1px solid oklch(1 0 0 / 10%);
+  border: 1px solid var(--glass-border);
 }
 @utility glass-l {
   background: var(--glass-l);
-  border: 1px solid oklch(1 0 0 / 16%);
+  border: 1px solid var(--glass-border-l);
 }
 @utility glow {
   box-shadow: var(--shadow-glow);
@@ -147,8 +176,8 @@
 @utility field {
   width: 100%;
   border-radius: 14px;
-  background: oklch(1 0 0 / 6%);
-  border: 1px solid oklch(1 0 0 / 12%);
+  background: var(--field-bg);
+  border: 1px solid var(--input);
   padding: 0.7rem 0.9rem;
   font-size: 15px;
   color: var(--foreground);
