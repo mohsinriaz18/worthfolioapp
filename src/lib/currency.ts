@@ -1,3 +1,4 @@
+import { getRates } from "./rates.functions";
 // Multi-currency core: currency list, exchange rates (live + cached + fallback + manual),
 // and a module-level display context so every total/chart converts consistently.
 
@@ -83,7 +84,6 @@ export async function loadRates(manual: Record<string, number> = {}) {
     }
   } catch { /* ignore */ }
   try {
-    const { getRates } = await import("./rates.functions");
     const j = await getRates();
     if (j.rates && j.at) {
       state.perUsd = { ...FALLBACK, ...j.rates };
