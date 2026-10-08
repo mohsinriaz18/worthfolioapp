@@ -4,7 +4,7 @@ import { AppShell, EmptyNote, PeriodToggle, SectionHead } from "@/components/App
 import { NetWorthChart } from "@/components/NetWorthChart";
 import { TxnRow } from "@/components/TxnRow";
 import {
-  CHART_COLORS, categoryBreakdown, debtRemaining, financeQuery, goalStatus, flowSummary, initials, netWorthSeries, nextDue, pct, periodRange, rs, totals, useFinance, type Period,
+  CHART_COLORS, categoryBreakdown, money, debtRemaining, financeQuery, goalStatus, flowSummary, initials, netWorthSeries, nextDue, pct, periodRange, rs, totals, useFinance, type Period,
 } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -99,7 +99,7 @@ function Dashboard() {
                 <div key={g.id}>
                   <div className="flex justify-between text-[12px]">
                     <span className="font-medium">{g.name}</span>
-                    <span className="num text-mist">{rs(s.saved)} / {rs(s.target)}</span>
+                    <span className="num text-mist">{money(s.saved, g.currency)} / {money(s.target, g.currency)}</span>
                   </div>
                   <div className="mt-1.5 h-1.5 rounded-full bg-foreground/10"><div className="h-full rounded-full bg-primary" style={{ width: `${s.pctDone}%` }} /></div>
                 </div>
@@ -122,7 +122,7 @@ function Dashboard() {
                 <span className="truncate text-[12px] font-semibold">{acc.name}</span>
                 {acc.last4 && <span className="text-[11px] text-mist">••{acc.last4}</span>}
               </div>
-              <p className={`num mt-6 text-[18px] font-semibold ${balance < 0 ? "text-coral" : ""}`}>{rs(balance)}</p>
+              <p className={`num mt-6 text-[18px] font-semibold ${balance < 0 ? "text-coral" : ""}`}>{money(balance, acc.currency)}</p>
               <p className="text-[11px] capitalize text-mist">{[acc.bank, acc.account_type].filter(Boolean).join(" · ")}</p>
             </div>
           ))}
@@ -145,7 +145,7 @@ function Dashboard() {
                   {days < 0 ? `Overdue ${-days}d` : days === 0 ? "Due today" : `Due ${due.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} · ${days}d`}
                 </p>
               </div>
-              <p className="num text-[13px] font-semibold">{rs(Number(b.amount))}</p>
+              <p className="num text-[13px] font-semibold">{money(Number(b.amount), b.currency)}</p>
             </div>
           ))}
         </div>

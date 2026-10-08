@@ -4,8 +4,12 @@ import { toast } from "sonner";
 import { AppShell, EmptyNote, SectionHead } from "@/components/AppShell";
 import { BottomSheet, Field, PrimaryButton } from "@/components/Sheet";
 import { supabase } from "@/integrations/supabase/client";
+import { CurrencySelect } from "@/components/CurrencySelect";
+import { useCurrency } from "@/components/CurrencyProvider";
+import { getCurrency, usdPerUnit } from "@/lib/currency";
+
 import {
-  debtPaid, debtProgress, debtRemaining, financeQuery, monthlyEquivalent, nextDue, rs, todayISO, totals, useFinance, useRefreshFinance, type Bill, type Debt,
+  debtPaid, debtProgress, debtRemaining, financeQuery, money, monthlyEquivalent, nextDue, rs, todayISO, totals, useFinance, useRefreshFinance, type Bill, type Debt,
 } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/debts")({
@@ -31,6 +35,7 @@ function Debts() {
   const [paying, setPaying] = useState<Debt | null>(null);
   const [pay, setPay] = useState({ amount: "", account: "", date: todayISO(), note: "" });
   const [open, setOpen] = useState<string | null>(null);
+  const cur = useCurrency();
 
   const monthly = d.debts.filter((x) => debtRemaining(x, d.debtPayments) > 0).reduce((s, x) => s + monthlyEquivalent(Number(x.min_payment), x.frequency), 0);
   const paidTotal = d.debtPayments.reduce((s, p) => s + Number(p.amount), 0);
@@ -54,6 +59,7 @@ function Debts() {
       start_date: edit.start_date || null,
       payoff_date: edit.payoff_date || null,
       notes: edit.notes || null,
+      currency: edit.currency ?? cur.primary,
     };
     if (row.original_amount < 0 || bal < 0) { toast.error("Amounts can't be negative"); return; }
     const { error } = edit.id ? await supabase.from("debts").update(row).eq("id", edit.id) : await supabase.from("debts").insert(row);
@@ -73,11 +79,11 @@ function Debts() {
     const amt = Number(pay.amount);
     const left = debtRemaining(paying, d.debtPayments);
     if (!amt || amt <= 0) { toast.error("Enter an amount"); return; }
-    if (amt > left + 0.5) { toast.error(`Only ${rs(left)} is left on this debt`); return; }
+    if (amt > left + 0.5) { toast.error(`Only ${money(left, paying.currency)} is left on this debt`); return; }
     const cat = d.categories.find((c) => c.name === "Debt Payment");
     const { data: tx, error: e1 } = await supabase
       .from("transactions")
-      .insert({ type: "expense", amount: amt, category_id: cat?.id ?? null, account_id: pay.account || null, occurred_on: pay.date, note: pay.note || `${paying.name} payment` })
+      .insert({ type: "expense", amount: amt, currency: paying.currency, fx_usd: usdPerUnit(paying.currency), category_id: cat?.id ?? null, account_id: pay.account || null, occurred_on: pay.date, note: pay.note || `${paying.name} payment` })
       .select("id")
       .single();
     if (e1) { toast.error(e1.message); return; }
@@ -133,7 +139,7 @@ function Debts() {
                     <p className="text-[11px] capitalize text-mist">{[x.debt_type, x.lender, Number(x.interest_rate) ? `${x.interest_rate}% APR` : null].filter(Boolean).join(" · ")}</p>
                   </div>
                   <div className="text-right">
-                    <p className="num text-[15px] font-semibold">{rs(left)}</p>
+                    <p className="num text-[15px] font-semibold">{money(left, x.currency)}</p>
                     <p className="text-[11px] text-mist">left</p>
                   </div>
                 </div>
@@ -144,7 +150,7 @@ function Debts() {
                   <span>{Math.round(prog)}% paid</span>
                   {left > 0 ? (
                     <span className={nd.days < 0 ? "text-coral" : nd.days <= 3 ? "text-gold" : ""}>
-                      {rs(Number(x.min_payment))} due {nd.days < 0 ? `${-nd.days}d ago` : nd.days === 0 ? "today" : nd.due.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                      {money(Number(x.min_payment), x.currency)} due {nd.days < 0 ? `${-nd.days}d ago` : nd.days === 0 ? "today" : nd.due.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                     </span>
                   ) : (
                     <span className="text-primary">Paid off 🎉</span>
@@ -168,8 +174,8 @@ function Debts() {
                     <button onClick={() => setEdit(x)} className="glass-l rounded-full px-4 py-2 text-[12px]">Edit</button>
                   </div>
                   <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
-                    <Info l="Original" v={rs(Number(x.original_amount))} />
-                    <Info l="Paid" v={rs(debtPaid(x, d.debtPayments))} />
+                    <Info l="Original" v={money(Number(x.original_amount), x.currency)} />
+                    <Info l="Paid" v={money(debtPaid(x, d.debtPayments), x.currency)} />
                     <Info l="Payoff by" v={x.payoff_date ?? "—"} />
                   </div>
                   {x.notes && <p className="mt-2 text-[12px] text-mist">{x.notes}</p>}
@@ -182,7 +188,7 @@ function Debts() {
                         <div key={p.id} className="flex items-center justify-between py-2 text-[12px]">
                           <span>{p.paid_on}{p.note ? ` · ${p.note}` : ""}</span>
                           <span className="flex items-center gap-3">
-                            <span className="num font-semibold">{rs(Number(p.amount))}</span>
+                            <span className="num font-semibold">{money(Number(p.amount), x.currency)}</span>
                             <button onClick={() => deletePayment(p.id, p.transaction_id)} aria-label="Delete payment" className="text-mist">✕</button>
                           </span>
                         </div>
@@ -201,6 +207,7 @@ function Debts() {
           <>
             <Field label="Name"><input className="field" value={edit.name ?? ""} onChange={(e) => setEdit({ ...edit, name: e.target.value })} placeholder="e.g. Car financing" /></Field>
             <div className="grid grid-cols-2 gap-3">
+              <Field label="Currency"><CurrencySelect value={edit.currency ?? cur.primary} onChange={(c) => setEdit({ ...edit, currency: c })} /></Field>
               <Field label="Type">
                 <select className="field capitalize" value={edit.debt_type ?? ""} onChange={(e) => setEdit({ ...edit, debt_type: e.target.value })}>
                   {TYPES.map((x) => <option key={x} value={x}>{x}</option>)}
@@ -237,7 +244,7 @@ function Debts() {
       </BottomSheet>
 
       <BottomSheet open={!!paying} onOpenChange={(o) => !o && setPaying(null)} title={`Pay ${paying?.name ?? ""}`}>
-        <Field label="Amount (Rs)"><input className="field num text-2xl" inputMode="decimal" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value.replace(/[^\d.]/g, "") })} /></Field>
+        <Field label={`Amount (${paying?.currency ?? ""})`}><input className="field num text-2xl" inputMode="decimal" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value.replace(/[^\d.]/g, "") })} /></Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Paid from">
             <select className="field" value={pay.account} onChange={(e) => setPay({ ...pay, account: e.target.value })}>

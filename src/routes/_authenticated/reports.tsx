@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { AppShell, EmptyNote, PeriodToggle, SectionHead } from "@/components/AppShell";
 import {
-  CHART_COLORS, categoryBreakdown, compactRs, debtRemaining, financeQuery, flowSummary, goalStatus, inRange, pct, periodRange, rs, toISO, todayISO, totals, useFinance, type Period,
+  CHART_COLORS, categoryBreakdown, compactRs, money, debtRemaining, financeQuery, flowSummary, goalStatus, inRange, pct, periodRange, rs, toISO, todayISO, totals, useFinance, type Period,
 } from "@/lib/finance";
 import { buildReport, downloadCsv, downloadXlsx } from "@/lib/export";
 
@@ -135,7 +135,7 @@ function Reports() {
           {biggest.map((t) => (
             <div key={t.id} className="flex items-center justify-between px-4 py-3 text-[13px]">
               <span className="truncate">{t.note || d.categories.find((c) => c.id === t.category_id)?.name || "Expense"} <span className="text-[11px] text-mist">· {t.occurred_on}</span></span>
-              <span className="num font-semibold">{rs(Number(t.amount))}</span>
+              <span className="num font-semibold">{money(Number(t.amount), t.currency)}</span>
             </div>
           ))}
         </div>
@@ -146,7 +146,7 @@ function Reports() {
         <Line l="Total invested" v={rs(tot.invested)} />
         <Line l="Current value" v={rs(tot.portfolio)} />
         <Line l="Gain / loss" v={`${rs(tot.gain, { sign: true })} · ${pct(tot.gainPct)}`} tone={tot.gain >= 0 ? "text-primary" : "text-coral"} />
-        {d.investments.map((i) => <Line key={i.id} l={i.name} v={`${rs(Number(i.current_value))} (${rs(Number(i.current_value) - Number(i.invested), { sign: true })})`} small />)}
+        {d.investments.map((i) => <Line key={i.id} l={i.name} v={`${money(Number(i.current_value), i.currency)} (${money(Number(i.current_value) - Number(i.invested), i.currency, { sign: true })})`} small />)}
       </div>
 
       <SectionHead title="Goals" right={`${Math.round(tot.goalPct)}%`} />
@@ -164,7 +164,7 @@ function Reports() {
       {d.debts.length === 0 ? <EmptyNote>No debts recorded.</EmptyNote> : (
         <div className="glass mt-3 divide-y divide-foreground/10 rounded-[18px]">
           <Line l="Payments this period" v={rs(d.debtPayments.filter((p) => p.paid_on >= toISO(r.start) && p.paid_on <= toISO(r.end)).reduce((a, p) => a + Number(p.amount), 0))} />
-          {d.debts.map((x) => <Line key={x.id} l={x.name} v={`${rs(debtRemaining(x, d.debtPayments))} left`} small />)}
+          {d.debts.map((x) => <Line key={x.id} l={x.name} v={`${money(debtRemaining(x, d.debtPayments), x.currency)} left`} small />)}
         </div>
       )}
 
