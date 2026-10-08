@@ -1,3 +1,4 @@
+import { getRates } from "./rates.functions";
 // Multi-currency core: currency list, exchange rates (live + cached + fallback + manual),
 // and a module-level display context so every total/chart converts consistently.
 
@@ -83,14 +84,12 @@ export async function loadRates(manual: Record<string, number> = {}) {
     }
   } catch { /* ignore */ }
   try {
-    const r = await fetch("https://open.er-api.com/v6/latest/USD");
-    const j = (await r.json()) as { result: string; rates: Record<string, number> };
-    if (j.result === "success") {
-      const at = new Date().toISOString();
+    const j = await getRates();
+    if (j.rates && j.at) {
       state.perUsd = { ...FALLBACK, ...j.rates };
       state.source = "live";
-      state.updatedAt = at;
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ rates: j.rates, at }));
+      state.updatedAt = j.at;
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ rates: j.rates, at: j.at }));
     }
   } catch { /* keep fallback */ }
   setManualRates(manual);

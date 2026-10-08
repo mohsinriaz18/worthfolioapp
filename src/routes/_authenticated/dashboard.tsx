@@ -44,7 +44,7 @@ function Dashboard() {
       <div className="mt-5 flex items-center justify-between">
         <span className="text-[12px] text-mist">Displaying in</span>
         <div className="glass-l flex gap-1 rounded-full p-1">
-          {(pair.includes(cur.display) ? pair : [...pair, cur.display]).map((c) => (
+          {pair.map((c) => (
             <button
               key={c}
               onClick={() => cur.setDisplay(c)}
