@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_authenticated/investments")({
       <Investments />
     </AppShell>
   ),
-  errorComponent: ({ error }) => <div className="p-6 text-coral">{error.message}</div>,
+  errorComponent: ({ error }) => <div className="p-6 text-coral">{(error as Error).message}</div>,
   notFoundComponent: () => <div className="p-6">Not found</div>,
 });
 
@@ -32,7 +32,7 @@ function Investments() {
   ).map(([name, value]) => ({ name, value }));
 
   async function save() {
-    if (!edit?.name) return toast.error("Name required");
+    if (!edit?.name) { toast.error("Name required"); return; }
     const row = {
       name: edit.name,
       asset_type: edit.asset_type ?? "stocks",
@@ -41,7 +41,7 @@ function Investments() {
       updated_at: new Date().toISOString(),
     };
     const { error } = edit.id ? await supabase.from("investments").update(row).eq("id", edit.id) : await supabase.from("investments").insert(row);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     setEdit(null);
     refresh();
   }

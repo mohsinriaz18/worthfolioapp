@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_authenticated/reports")({
       <Reports />
     </AppShell>
   ),
-  errorComponent: ({ error }) => <div className="p-6 text-coral">{error.message}</div>,
+  errorComponent: ({ error }) => <div className="p-6 text-coral">{(error as Error).message}</div>,
   notFoundComponent: () => <div className="p-6">Not found</div>,
 });
 

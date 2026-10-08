@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_authenticated/accounts")({
       <Accounts />
     </AppShell>
   ),
-  errorComponent: ({ error }) => <div className="p-6 text-coral">{error.message}</div>,
+  errorComponent: ({ error }) => <div className="p-6 text-coral">{(error as Error).message}</div>,
   notFoundComponent: () => <div className="p-6">Not found</div>,
 });
 
@@ -29,7 +29,7 @@ function Accounts() {
   const [selected, setSelected] = useState<string | null>(null);
 
   async function save() {
-    if (!edit?.name) return toast.error("Name required");
+    if (!edit?.name) { toast.error("Name required"); return; }
     const row = {
       name: edit.name,
       bank: edit.bank || null,
@@ -38,7 +38,7 @@ function Accounts() {
       opening_balance: Number(edit.opening_balance ?? 0),
     };
     const { error } = edit.id ? await supabase.from("accounts").update(row).eq("id", edit.id) : await supabase.from("accounts").insert(row);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success("Account saved");
     setEdit(null);
     refresh();

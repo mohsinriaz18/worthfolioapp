@@ -32,7 +32,7 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [addOpen, setAddOpen] = useState(false);
-  const name = (user.user_metadata?.full_name as string | undefined) ?? user.email ?? "You";
+  const name = (user.user_metadata?.["full_name"] as string | undefined) ?? user.email ?? "You";
 
   async function signOut() {
     await qc.cancelQueries();
