@@ -118,6 +118,214 @@ export type Database = {
         }
         Relationships: []
       }
+      debt_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          debt_id: string
+          id: string
+          note: string | null
+          paid_on: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          debt_id: string
+          id?: string
+          note?: string | null
+          paid_on?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          debt_id?: string
+          id?: string
+          note?: string | null
+          paid_on?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debt_payments_debt_id_fkey"
+            columns: ["debt_id"]
+            isOneToOne: false
+            referencedRelation: "debts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debt_payments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      debts: {
+        Row: {
+          created_at: string
+          debt_type: string
+          due_day: number
+          frequency: string
+          id: string
+          interest_rate: number
+          lender: string | null
+          min_payment: number
+          name: string
+          notes: string | null
+          original_amount: number
+          payoff_date: string | null
+          start_date: string | null
+          starting_balance: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          debt_type?: string
+          due_day?: number
+          frequency?: string
+          id?: string
+          interest_rate?: number
+          lender?: string | null
+          min_payment?: number
+          name: string
+          notes?: string | null
+          original_amount?: number
+          payoff_date?: string | null
+          start_date?: string | null
+          starting_balance?: number
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          debt_type?: string
+          due_day?: number
+          frequency?: string
+          id?: string
+          interest_rate?: number
+          lender?: string | null
+          min_payment?: number
+          name?: string
+          notes?: string | null
+          original_amount?: number
+          payoff_date?: string | null
+          start_date?: string | null
+          starting_balance?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      goal_contributions: {
+        Row: {
+          amount: number
+          contributed_on: string
+          created_at: string
+          goal_id: string
+          id: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          contributed_on?: string
+          created_at?: string
+          goal_id: string
+          id?: string
+          note?: string | null
+          user_id?: string
+        }
+        Update: {
+          amount?: number
+          contributed_on?: string
+          created_at?: string
+          goal_id?: string
+          id?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_contributions_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goals: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          target_amount: number
+          target_date: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          target_amount: number
+          target_date?: string | null
+          user_id?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          target_amount?: number
+          target_date?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      investment_values: {
+        Row: {
+          created_at: string
+          id: string
+          investment_id: string
+          recorded_on: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          investment_id: string
+          recorded_on?: string
+          user_id?: string
+          value: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          investment_id?: string
+          recorded_on?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investment_values_investment_id_fkey"
+            columns: ["investment_id"]
+            isOneToOne: false
+            referencedRelation: "investments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       investments: {
         Row: {
           asset_type: string
@@ -126,6 +334,11 @@ export type Database = {
           id: string
           invested: number
           name: string
+          notes: string | null
+          platform: string | null
+          purchase_date: string | null
+          purchase_price: number | null
+          quantity: number | null
           updated_at: string
           user_id: string
         }
@@ -136,6 +349,11 @@ export type Database = {
           id?: string
           invested?: number
           name: string
+          notes?: string | null
+          platform?: string | null
+          purchase_date?: string | null
+          purchase_price?: number | null
+          quantity?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -146,6 +364,11 @@ export type Database = {
           id?: string
           invested?: number
           name?: string
+          notes?: string | null
+          platform?: string | null
+          purchase_date?: string | null
+          purchase_price?: number | null
+          quantity?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -169,6 +392,36 @@ export type Database = {
           snap_date?: string
           user_id?: string
           value?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string | null
+          id: string
+          last_reminder_on: string | null
+          reminder_time: string
+          reminders_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string | null
+          id: string
+          last_reminder_on?: string | null
+          reminder_time?: string
+          reminders_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          last_reminder_on?: string | null
+          reminder_time?: string
+          reminders_enabled?: boolean
+          updated_at?: string
         }
         Relationships: []
       }
