@@ -3,11 +3,12 @@ import { useState } from "react";
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { AppShell, EmptyNote, PeriodToggle, SectionHead } from "@/components/AppShell";
 import {
-  CHART_COLORS, categoryBreakdown, compactRs, financeQuery, flowSummary, inRange, pct, periodRange, rs, toISO, useFinance, type Period,
+  CHART_COLORS, categoryBreakdown, compactRs, debtRemaining, financeQuery, flowSummary, goalStatus, inRange, pct, periodRange, rs, toISO, todayISO, totals, useFinance, type Period,
 } from "@/lib/finance";
+import { buildReport, downloadCsv, downloadXlsx } from "@/lib/export";
 
 export const Route = createFileRoute("/_authenticated/reports")({
-  head: () => ({ meta: [{ title: "Reports — Ledger" }, { name: "description", content: "Monthly, quarterly and yearly reports of income and spending." }] }),
+  head: () => ({ meta: [{ title: "Reports — Worthfolio" }, { name: "description", content: "Monthly, quarterly and yearly reports of income and spending." }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(financeQuery),
   component: () => (
     <AppShell title="Reports">
@@ -20,10 +21,17 @@ export const Route = createFileRoute("/_authenticated/reports")({
 
 function Reports() {
   const d = useFinance();
-  const [period, setPeriod] = useState<Period>("month");
+  const [period, setPeriod] = useState<Period | "custom">("month");
   const [offset, setOffset] = useState(0);
-  const r = periodRange(period, offset);
-  const prevR = periodRange(period, offset - 1);
+  const [from, setFrom] = useState(toISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
+  const [to, setTo] = useState(todayISO());
+  const tot = totals(d);
+  const r =
+    period === "custom"
+      ? { start: new Date(from + "T00:00:00"), end: new Date(to + "T00:00:00"), label: "Custom range" }
+      : periodRange(period, offset);
+  const span = r.end.getTime() - r.start.getTime() + 86400000;
+  const prevR = period === "custom" ? { start: new Date(r.start.getTime() - span), end: new Date(r.start.getTime() - 86400000) } : periodRange(period, offset - 1);
   const f = flowSummary(d.transactions, r.start, r.end);
   const pf = flowSummary(d.transactions, prevR.start, prevR.end);
   const exp = categoryBreakdown(d, "expense", r.start, r.end);
@@ -32,16 +40,20 @@ function Reports() {
 
   // buckets: days for month, months for quarter/year
   const buckets: { label: string; in: number; out: number }[] = [];
-  if (period === "month") {
-    const n = r.end.getDate();
-    for (let i = 1; i <= n; i++) buckets.push({ label: String(i), in: 0, out: 0 });
+  const dayCount = Math.round(span / 86400000);
+  if (period === "week" || period === "month" || (period === "custom" && dayCount <= 62)) {
+    for (let i = 0; i < dayCount; i++) {
+      const dd = new Date(r.start.getFullYear(), r.start.getMonth(), r.start.getDate() + i);
+      buckets.push({ label: period === "week" ? dd.toLocaleDateString("en-GB", { weekday: "short" }) : String(dd.getDate()), in: 0, out: 0 });
+    }
     txns.forEach((t) => {
-      const b = buckets[Number(t.occurred_on.slice(8, 10)) - 1]!;
+      const b = buckets[Math.round((new Date(t.occurred_on + "T00:00:00").getTime() - r.start.getTime()) / 86400000)];
+      if (!b) return;
       if (t.type === "income") b.in += Number(t.amount);
       if (t.type === "expense") b.out += Number(t.amount);
     });
   } else {
-    const months = period === "quarter" ? 3 : 12;
+    const months = period === "quarter" ? 3 : period === "year" ? 12 : (r.end.getFullYear() - r.start.getFullYear()) * 12 + r.end.getMonth() - r.start.getMonth() + 1;
     for (let i = 0; i < months; i++) {
       const m = new Date(r.start.getFullYear(), r.start.getMonth() + i, 1);
       buckets.push({ label: m.toLocaleDateString("en-GB", { month: "short" }), in: 0, out: 0 });
@@ -59,23 +71,11 @@ function Reports() {
   const days = Math.max(1, Math.round((Math.min(Date.now(), r.end.getTime()) - r.start.getTime()) / 86400000) + 1);
   const biggest = [...txns].filter((t) => t.type === "expense").sort((a, b) => Number(b.amount) - Number(a.amount)).slice(0, 5);
 
-  function exportCSV() {
-    const rows = [["Date", "Type", "Category", "Account", "Note", "Amount (PKR)"]];
-    txns.forEach((t) => {
-      rows.push([
-        t.occurred_on,
-        t.type,
-        d.categories.find((c) => c.id === t.category_id)?.name ?? "",
-        d.accounts.find((a) => a.id === t.account_id)?.name ?? "",
-        (t.note ?? "").replace(/"/g, "'"),
-        String(t.amount),
-      ]);
-    });
-    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `ledger-${period}-${toISO(r.start)}.csv`;
-    a.click();
+  function exportFile(kind: "xlsx" | "csv") {
+    const rep = buildReport(d, r.start, r.end, r.label);
+    const name = `worthfolio-${period}-${toISO(r.start)}_${toISO(r.end)}.${kind}`;
+    if (kind === "xlsx") downloadXlsx(rep, name);
+    else downloadCsv(rep, name);
   }
 
   const tooltipStyle = { background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12 };
@@ -89,14 +89,21 @@ function Reports() {
             setPeriod(v);
             setOffset(0);
           }}
-          options={[{ v: "month", l: "Monthly" }, { v: "quarter", l: "Quarterly" }, { v: "year", l: "Yearly" }]}
+          options={[{ v: "week", l: "Week" }, { v: "month", l: "Month" }, { v: "quarter", l: "Qtr" }, { v: "year", l: "Year" }, { v: "custom", l: "Custom" }]}
         />
       </div>
+      {period === "custom" ? (
+        <div className="no-print mt-3 grid grid-cols-2 gap-3">
+          <input type="date" className="field" value={from} max={to} onChange={(e) => setFrom(e.target.value)} aria-label="From" />
+          <input type="date" className="field" value={to} min={from} onChange={(e) => setTo(e.target.value)} aria-label="To" />
+        </div>
+      ) : (
       <div className="mt-3 flex items-center justify-between">
         <button onClick={() => setOffset(offset - 1)} className="no-print glass-l grid size-9 place-items-center rounded-full">‹</button>
         <p className="text-[16px] font-semibold">{r.label}</p>
         <button onClick={() => setOffset(Math.min(0, offset + 1))} disabled={offset === 0} className="no-print glass-l grid size-9 place-items-center rounded-full disabled:opacity-30">›</button>
       </div>
+      )}
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <Stat label="Earned" value={rs(f.income)} sub={`${pct(pf.income ? ((f.income - pf.income) / pf.income) * 100 : 0)} vs prev`} tone="text-primary" />
@@ -134,9 +141,44 @@ function Reports() {
         </div>
       )}
 
-      <div className="no-print mt-6 grid grid-cols-2 gap-3">
-        <button onClick={exportCSV} className="glass-l rounded-2xl py-3 text-[14px] font-semibold">Export CSV</button>
-        <button onClick={() => window.print()} className="glow rounded-2xl bg-primary py-3 text-[14px] font-semibold text-primary-foreground">Save as PDF</button>
+      <SectionHead title="Investments" right={rs(tot.portfolio)} />
+      <div className="glass mt-3 divide-y divide-foreground/10 rounded-[18px]">
+        <Line l="Total invested" v={rs(tot.invested)} />
+        <Line l="Current value" v={rs(tot.portfolio)} />
+        <Line l="Gain / loss" v={`${rs(tot.gain, { sign: true })} · ${pct(tot.gainPct)}`} tone={tot.gain >= 0 ? "text-primary" : "text-coral"} />
+        {d.investments.map((i) => <Line key={i.id} l={i.name} v={`${rs(Number(i.current_value))} (${rs(Number(i.current_value) - Number(i.invested), { sign: true })})`} small />)}
+      </div>
+
+      <SectionHead title="Goals" right={`${Math.round(tot.goalPct)}%`} />
+      {d.goals.length === 0 ? <EmptyNote>No goals yet.</EmptyNote> : (
+        <div className="glass mt-3 divide-y divide-foreground/10 rounded-[18px]">
+          {d.goals.map((g) => {
+            const st = goalStatus(g, d.goalContributions);
+            const inP = d.goalContributions.filter((c) => c.goal_id === g.id && c.contributed_on >= toISO(r.start) && c.contributed_on <= toISO(r.end)).reduce((a, c) => a + Number(c.amount), 0);
+            return <Line key={g.id} l={`${g.name} · ${Math.round(st.pctDone)}%`} v={`${rs(st.saved)} / ${rs(st.target)} · +${rs(inP)} this period`} small />;
+          })}
+        </div>
+      )}
+
+      <SectionHead title="Debts" right={rs(tot.debtTotal)} />
+      {d.debts.length === 0 ? <EmptyNote>No debts recorded.</EmptyNote> : (
+        <div className="glass mt-3 divide-y divide-foreground/10 rounded-[18px]">
+          <Line l="Payments this period" v={rs(d.debtPayments.filter((p) => p.paid_on >= toISO(r.start) && p.paid_on <= toISO(r.end)).reduce((a, p) => a + Number(p.amount), 0))} />
+          {d.debts.map((x) => <Line key={x.id} l={x.name} v={`${rs(debtRemaining(x, d.debtPayments))} left`} small />)}
+        </div>
+      )}
+
+      <SectionHead title="Net worth" right="Today" />
+      <div className="glass mt-3 divide-y divide-foreground/10 rounded-[18px]">
+        <Line l="Total assets" v={rs(tot.totalAssets)} tone="text-primary" />
+        <Line l="Total liabilities" v={rs(-tot.totalLiabilities)} tone="text-coral" />
+        <Line l="Net worth" v={rs(tot.netWorth)} />
+      </div>
+
+      <div className="no-print mt-6 grid grid-cols-3 gap-2">
+        <button onClick={() => exportFile("xlsx")} className="glow rounded-2xl bg-primary py-3 text-[13px] font-semibold text-primary-foreground">Excel</button>
+        <button onClick={() => exportFile("csv")} className="glass-l rounded-2xl py-3 text-[13px] font-semibold">CSV</button>
+        <button onClick={() => window.print()} className="glass-l rounded-2xl py-3 text-[13px] font-semibold">PDF</button>
       </div>
     </>
   );
@@ -182,6 +224,15 @@ function Reports() {
       </>
     );
   }
+}
+
+function Line({ l, v, tone, small }: { l: string; v: string; tone?: string; small?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between gap-3 px-4 ${small ? "py-2 text-[12px]" : "py-3 text-[13px]"}`}>
+      <span className={`truncate ${small ? "text-mist" : ""}`}>{l}</span>
+      <span className={`num shrink-0 font-semibold ${tone ?? ""}`}>{v}</span>
+    </div>
+  );
 }
 
 function Stat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: string }) {

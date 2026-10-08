@@ -14,6 +14,8 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
+import { applyTheme, getThemePref, themeBootScript } from "@/lib/theme";
+import { registerNotificationWorker } from "@/lib/reminders";
 
 function NotFoundComponent() {
   return (
@@ -64,8 +66,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "Ledger" },
-      { title: "Ledger — Money & Net Worth Tracker" },
+      { name: "apple-mobile-web-app-title", content: "Worthfolio" },
+      { title: "Worthfolio — Money, Debts, Goals & Net Worth" },
       { name: "description", content: "Track income, expenses, accounts, bills, investments and net worth." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -82,6 +84,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap",
       },
     ],
+    scripts: [{ children: themeBootScript }],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -91,7 +94,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
@@ -114,11 +117,20 @@ function RootComponent() {
     });
     return () => data.subscription.unsubscribe();
   }, [router, queryClient]);
+  useEffect(() => {
+    const pref = getThemePref();
+    applyTheme(pref);
+    registerNotificationWorker().catch(() => {});
+    const mq = matchMedia("(prefers-color-scheme: light)");
+    const on = () => getThemePref() === "system" && applyTheme("system");
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
-      <Toaster position="top-center" theme="dark" />
+      <Toaster position="top-center" />
     </QueryClientProvider>
   );
 }

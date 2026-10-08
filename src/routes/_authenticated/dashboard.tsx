@@ -4,11 +4,11 @@ import { AppShell, EmptyNote, PeriodToggle, SectionHead } from "@/components/App
 import { NetWorthChart } from "@/components/NetWorthChart";
 import { TxnRow } from "@/components/TxnRow";
 import {
-  CHART_COLORS, categoryBreakdown, financeQuery, flowSummary, initials, netWorthSeries, nextDue, pct, periodRange, rs, totals, useFinance, type Period,
+  CHART_COLORS, categoryBreakdown, debtRemaining, financeQuery, goalStatus, flowSummary, initials, netWorthSeries, nextDue, pct, periodRange, rs, totals, useFinance, type Period,
 } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — Ledger" }, { name: "description", content: "Your net worth, cash flow, accounts, bills and investments." }] }),
+  head: () => ({ meta: [{ title: "Dashboard — Worthfolio" }, { name: "description", content: "Your net worth, cash flow, accounts, bills and investments." }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(financeQuery),
   component: () => (
     <AppShell title="Dashboard">
@@ -32,8 +32,8 @@ function Dashboard() {
   const cats = categoryBreakdown(d, "expense", r.start, r.end).slice(0, 5);
   const maxCat = cats[0]?.value ?? 1;
   const bills = d.bills.map((b) => ({ b, ...nextDue(b) })).sort((a, b) => a.days - b.days).slice(0, 3);
-  const gain = t.portfolio - t.invested;
-  const periodName = period === "month" ? "month" : period === "quarter" ? "quarter" : "year";
+  const gain = t.gain;
+  const periodName = period === "week" ? "week" : period === "month" ? "month" : period === "quarter" ? "quarter" : "year";
 
   return (
     <>
@@ -50,10 +50,9 @@ function Dashboard() {
           <PeriodToggle value={period} onChange={setPeriod} options={[{ v: "month", l: "Month" }, { v: "quarter", l: "Quarter" }, { v: "year", l: "Year" }]} />
         </div>
         <NetWorthChart data={series} />
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <Mini label="Cash" value={t.assets} />
-          <Mini label="Invested" value={t.portfolio} />
-          <Mini label="Owed" value={t.liabilities} tone="coral" />
+        <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+          <Mini label="Total assets" value={t.totalAssets} />
+          <Mini label="Liabilities" value={-t.totalLiabilities} tone="coral" />
         </div>
       </div>
 
@@ -71,6 +70,44 @@ function Dashboard() {
           </p>
         </div>
       </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-3">
+        <Link to="/investments" className="glass rounded-[18px] px-3 py-3">
+          <p className="eyebrow !text-[10px] !tracking-[0.12em]">Invest gain</p>
+          <p className={`num mt-1 text-[14px] font-semibold ${t.gain >= 0 ? "text-primary" : "text-coral"}`}>{pct(t.gainPct)}</p>
+          <p className="num text-[10px] text-mist">{rs(t.gain, { sign: true })}</p>
+        </Link>
+        <Link to="/debts" className="glass rounded-[18px] px-3 py-3">
+          <p className="eyebrow !text-[10px] !tracking-[0.12em]">Debt</p>
+          <p className="num mt-1 text-[14px] font-semibold text-coral">{rs(t.debtTotal)}</p>
+          <p className="text-[10px] text-mist">{d.debts.filter((x) => debtRemaining(x, d.debtPayments) > 0).length} active</p>
+        </Link>
+        <Link to="/goals" className="glass rounded-[18px] px-3 py-3">
+          <p className="eyebrow !text-[10px] !tracking-[0.12em]">Goals</p>
+          <p className="num mt-1 text-[14px] font-semibold">{Math.round(t.goalPct)}%</p>
+          <div className="mt-1 h-1 rounded-full bg-foreground/10"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, t.goalPct)}%` }} /></div>
+        </Link>
+      </div>
+
+      {d.goals.length > 0 && (
+        <>
+          <SectionHead title="Goal progress" right={<Link to="/goals" className="text-primary">All goals →</Link>} />
+          <div className="mt-3 space-y-3">
+            {d.goals.slice(0, 3).map((g) => {
+              const s = goalStatus(g, d.goalContributions);
+              return (
+                <div key={g.id}>
+                  <div className="flex justify-between text-[12px]">
+                    <span className="font-medium">{g.name}</span>
+                    <span className="num text-mist">{rs(s.saved)} / {rs(s.target)}</span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 rounded-full bg-foreground/10"><div className="h-full rounded-full bg-primary" style={{ width: `${s.pctDone}%` }} /></div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <SectionHead title="Accounts" right={<Link to="/accounts" className="text-primary">{d.accounts.length} accounts →</Link>} />
       {t.balances.length === 0 ? (

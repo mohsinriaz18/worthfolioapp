@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { financeQuery, initials, nextDue, rs, todayISO, useFinance, useRefreshFinance, type Bill } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/bills")({
-  head: () => ({ meta: [{ title: "Bills — Ledger" }, { name: "description", content: "Recurring bills, due dates and payments." }] }),
+  head: () => ({ meta: [{ title: "Bills — Worthfolio" }, { name: "description", content: "Recurring bills, due dates and payments." }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(financeQuery),
   component: () => (
     <AppShell title="Bills">

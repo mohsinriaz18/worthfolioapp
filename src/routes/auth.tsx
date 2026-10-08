@@ -8,9 +8,9 @@ import { Backdrop } from "@/components/AppShell";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Ledger" },
+      { title: "Sign in — Worthfolio" },
       { name: "description", content: "Sign in to track your money, accounts, bills and net worth." },
-      { property: "og:title", content: "Sign in — Ledger" },
+      { property: "og:title", content: "Sign in — Worthfolio" },
       { property: "og:description", content: "Sign in to track your money, accounts, bills and net worth." },
     ],
   }),
@@ -57,8 +57,8 @@ function AuthPage() {
     <div className="relative min-h-screen bg-background text-foreground">
       <Backdrop />
       <div className="relative z-10 mx-auto flex min-h-screen max-w-[420px] flex-col justify-center px-5">
-        <div className="glow mb-6 grid size-14 place-items-center rounded-2xl bg-primary text-2xl font-extrabold text-primary-foreground">L</div>
-        <p className="eyebrow">Ledger</p>
+        <div className="glow mb-6 grid size-14 place-items-center rounded-2xl bg-primary text-2xl font-extrabold text-primary-foreground">W</div>
+        <p className="eyebrow">Worthfolio</p>
         <h1 className="mt-1 text-3xl font-bold">{mode === "in" ? "Welcome back" : "Create your ledger"}</h1>
         <p className="mt-2 text-sm text-mist">Every rupee in and out, your accounts, bills and net worth in one place.</p>
         <form onSubmit={submit} className="glass mt-6 rounded-[22px] p-5">
@@ -71,6 +71,19 @@ function AuthPage() {
             Continue with Google
           </button>
         </form>
+        {mode === "in" && (
+          <button
+            onClick={async () => {
+              if (!email) { toast.error("Enter your email above first"); return; }
+              const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
+              if (error) toast.error(error.message);
+              else toast.success("Password reset link sent");
+            }}
+            className="mt-4 text-sm text-mist"
+          >
+            Forgot password?
+          </button>
+        )}
         <button onClick={() => setMode(mode === "in" ? "up" : "in")} className="mt-5 text-sm text-mist">
           {mode === "in" ? "New here? " : "Have an account? "}
           <span className="font-semibold text-primary">{mode === "in" ? "Create an account" : "Sign in"}</span>
